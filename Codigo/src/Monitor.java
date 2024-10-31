@@ -1,7 +1,7 @@
 import java.io.*;
 import java.net.*;
 
-// Esto por ahora va regular, se enciende y se pone a escuchar, pero no hace nada
+// Esto por ahora salvo error, ya está listo	    
 
 public class Monitor {
 
@@ -13,38 +13,42 @@ public class Monitor {
 
     // Escuchar mensajes enviados por los agentes
     public void listenToMessages() {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Monitor escuchando en el puerto: " + port);
+        try (ServerSocket serverSocket = new ServerSocket(this.port)) {
+            System.out.println("Monitor escuchando en el puerto: " + this.port);
 
             while (true) {
-                Socket socket = serverSocket.accept();
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                Socket clientSocket = serverSocket.accept();
+                BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 String message = in.readLine();
-                System.out.println("Monitor recibió: " + message);
 
-                logMessage(message); // Registrar el mensaje
-                socket.close();
+                // Capturar la IP y el puerto del emisor
+                String senderAddress = clientSocket.getInetAddress().getHostAddress();
+                int senderPort = clientSocket.getPort();
+
+                System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+                logMessage(senderAddress, senderPort, message);
+
+                clientSocket.close();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Loguear mensaje en un archivo de texto
-    public void logMessage(String message) {
-        try (FileWriter fw = new FileWriter("monitor_logs.txt", true);
+    public void logMessage(String ip, int port, String message) {
+        File logFile = new File("Codigo/out/monitor_logs.txt");
+        try (FileWriter fw = new FileWriter(logFile, true);
                 BufferedWriter bw = new BufferedWriter(fw);
                 PrintWriter out = new PrintWriter(bw)) {
-
-            out.println(message);
-
+            // Registrar IP, puerto y mensaje
+            out.println("[" + ip + " : " + port + "] " + "--> " + message);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public static void main(String[] args) {
-        int monitorPort = 9999; // Puerto en el que escucha el monitor
+        int monitorPort = 4300; // Puerto en el que escucha el monitor
 
         Monitor monitor = new Monitor(monitorPort);
         monitor.listenToMessages(); // Iniciar monitor para recibir mensajes
