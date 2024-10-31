@@ -1,0 +1,4 @@
+[192.168.56.1 : 50700] --> Hola, soy el agente del puerto 4000
+[192.168.56.1 : 50703] --> Hola, soy el agente del puerto 4002
+[192.168.56.1 : 50706] --> Hola, soy el agente del puerto 4004
+[192.168.56.1 : 50708] --> Hola, soy el agente del puerto 4006
