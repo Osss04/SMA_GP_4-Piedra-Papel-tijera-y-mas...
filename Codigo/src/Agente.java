@@ -254,7 +254,7 @@ public class Agente {
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
-        agente.sendToMonitor("Hola, soy el agente del puerto " + agente.listeningPort);
+        agente.sendToMonitor("Hola soy el agente del puerto " + agente.listeningPort);
 
         while (true) {
             // Escuchar mensajes directos
