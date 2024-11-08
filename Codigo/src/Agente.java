@@ -16,11 +16,15 @@ public class Agente {
     private InetAddress ip;
     private int netMask;
     private InetAddress subNet;
-    private List<Agente> agentesDescubiertos;
+    private List<AgenteConocido> agentesDescubiertos;
 
     public Agente(InetAddress monitorAddress, int monitorPort) throws IOException {
         this.monitorAddress = monitorAddress;
         this.monitorPort = monitorPort;
+
+        // Inicializar la lista de agentes conocidos
+        this.agentesDescubiertos = new ArrayList<>();
+
         int port = 4000;
         while (port <= 4200) {
             if (port % 2 == 0) {
@@ -188,8 +192,7 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Enviar mensaje por broadcast
-    public void sendBroadcast(String message) throws IOException {
+    public void sendBroadcast(String message, int waitTime) throws IOException {
         while (true) {
             for (InetAddress ip : this.ipList) {
                 try (DatagramSocket socket = new DatagramSocket()) {
@@ -204,9 +207,135 @@ public class Agente {
                 }
             }
             System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
+            try {
+                Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
-
     }
+
+    // Método para escuchar mensajes de broadcast de otros agentes y registrar su IP
+    public void listenForBroadcast() {
+        new Thread(() -> {
+            try (DatagramSocket discoverySocket = new DatagramSocket(this.listeningPort)) {
+                System.out.println("Agente escuchando mensajes de broadcast en el puerto UDP " + this.listeningPort);
+
+                byte[] buffer = new byte[1024];
+
+                while (true) {
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                    discoverySocket.receive(packet);  // Recibe el mensaje de broadcast
+
+                    String message = new String(packet.getData(), 0, packet.getLength());
+                    InetAddress senderAddress = packet.getAddress();
+                    int senderPort = Integer.parseInt(message);
+
+                    // Ignorar mensajes de broadcast enviados por este propio agente
+                    if (senderAddress.equals(this.ip) && senderPort == this.listeningPort) {
+                        System.out.println("Mensaje de broadcast ignorado: proviene del propio agente.");
+                        continue; // Saltar a la siguiente iteración del bucle
+                    }
+
+                    System.out.println("Mensaje de broadcast recibido de " + senderAddress + ": [Port: " + senderPort + "]: " + message);
+
+                    AgenteConocido nuevoAgente = new AgenteConocido(senderAddress, senderPort);
+                    if (!agentesDescubiertos.contains(nuevoAgente)) {
+                        agentesDescubiertos.add(nuevoAgente);
+                        System.out.println("Agente añadido a la lista de conocidos: " + nuevoAgente);
+                    } else {
+                        System.out.println("Agente ya conocido: " + nuevoAgente);
+                    }
+
+                    // Mostrar el estado actual de agentesDescubiertos
+                    System.out.println("Lista actual de agentes conocidos: " + agentesDescubiertos);
+                }
+            } catch (IOException e) {
+                System.err.println("Error en la escucha de broadcast: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+    // Enviar mensaje a todas las IPs conocidas mediante TCP
+    public void sendBroadcastTCP(String message, int waitTime) {
+        new Thread(() -> {
+            while (true) {
+                for (InetAddress ip : this.ipList) {
+                    for (int puerto = 4000; puerto <= 4300; puerto += 2) {  // Solo puertos pares
+                        try (Socket socket = new Socket()) {
+                            // Configura un timeout para evitar bloqueos en la conexión
+                            socket.connect(new InetSocketAddress(ip, puerto), 2000);
+
+                            // Envía el mensaje a través del flujo de salida
+                            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                            out.println(message);
+
+                        } catch (IOException e) {
+                            System.err.println("Error al enviar mensaje a " + ip + " en el puerto " + puerto + ": " + e.getMessage());
+                        }
+                    }
+                }
+
+                System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
+
+                // Espera antes de enviar el siguiente mensaje
+                try {
+                    Thread.sleep(waitTime);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+    }
+
+    // Escuchar conexiones entrantes TCP (equivalente a broadcast en TCP)
+    public void listenForBroadcastTCP() {
+        new Thread(() -> {
+            try (ServerSocket serverSocket = new ServerSocket(this.listeningPort)) {
+                System.out.println("Agente escuchando mensajes en el puerto TCP " + this.listeningPort);
+
+                while (true) {
+                    try (Socket clientSocket = serverSocket.accept();
+                         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
+
+                        InetAddress senderAddress = clientSocket.getInetAddress();
+                        String message = in.readLine();  // Lee el mensaje completo
+
+                        if (message != null) {
+                            System.out.println("Mensaje recibido de " + senderAddress + ": " + message);
+
+                            int senderPort = clientSocket.getPort();
+                            AgenteConocido nuevoAgente = new AgenteConocido(senderAddress, senderPort);
+
+                            // Ignorar si es el propio agente
+                            if (!senderAddress.equals(this.ip) || senderPort != this.listeningPort) {
+                                // Añadir a la lista de agentes descubiertos si es nuevo
+                                if (!agentesDescubiertos.contains(nuevoAgente)) {
+                                    agentesDescubiertos.add(nuevoAgente);
+                                    System.out.println("Agente añadido a la lista de conocidos: " + nuevoAgente);
+                                } else {
+                                    System.out.println("Agente ya conocido: " + nuevoAgente);
+                                }
+                            } else {
+                                System.out.println("Mensaje de propio agente ignorado.");
+                            }
+                        }
+                    } catch (IOException e) {
+                        System.err.println("Error al recibir mensaje: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error en el socket del servidor TCP: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -216,8 +345,43 @@ public class Agente {
 
     // Escuchar mensajes directos enviados al agente
     public void listenMessages() {
-        // Crear un hilo para manejar la escucha de mensajes de forma concurrente
+        Thread listenerThread = new Thread(() -> {
+            try (ServerSocket listenSocket = new ServerSocket(this.listeningPort)) {
+                System.out.println("Escuchando en el puerto " + this.listeningPort);
+
+                while (true) {
+                    try (Socket clientSocket = listenSocket.accept();
+                         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+
+                        InetAddress senderAddress = clientSocket.getInetAddress();
+                        int senderPort = clientSocket.getPort();
+
+                        String receivedMessage;
+                        while ((receivedMessage = in.readLine()) != null) {
+                            System.out.println("Mensaje recibido de " + senderAddress + ": " + receivedMessage);
+
+                            if ("Hola".equals(receivedMessage)) {
+                                out.println("Hola de vuelta desde el agente del puerto " + this.listeningPort);
+                            } else if ("QuieroHacerELAquello".equals(receivedMessage)) {
+                                // Aquí llama a tu función específica para manejar este mensaje
+                                FuncionDeAgente();
+                            }
+                        }
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        listenerThread.start();
     }
+
+
+
 
     // Enviar respuesta directa a otro agente
     public void sendDirectMessage(String message, InetAddress address, int puertoDestino) {
@@ -227,6 +391,16 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Hasta aqúi la comunicación Agente-Agente
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    public void FuncionDeAgente(){
+        System.out.println("UGHHH!");
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////// Hasta aqúi la Funcion del Agente
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -249,18 +423,33 @@ public class Agente {
     public static void main(String[] args) throws IOException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.56.1"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.73.191"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
         agente.sendToMonitor("Hola soy el agente del puerto " + agente.listeningPort);
 
-        while (true) {
-            // Escuchar mensajes directos
-            agente.listenMessages();
-            agente.sendBroadcast("Hola");
-        }
+        // Crear hilo para escuchar los mensajes de broadcast
+        agente.listenForBroadcast();
+
+        // Crear hilo para escuchar mensajes TCP
+        agente.listenMessages();
+
+        // Crear hilo para enviar mensajes periódicos
+        Thread sendBroadcastThread = new Thread(() -> {
+            while (true) {
+                try {
+                    agente.sendBroadcast(""+agente.listeningPort, 5000);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+        // Iniciar el hilo de envío de broadcast
+        sendBroadcastThread.start();
+
         // Crear Hilo que mande por broadcast mensajes "Hola"
         // Crear Hilo que escuche mensajes
         // si es Hola que responda de vuelta
