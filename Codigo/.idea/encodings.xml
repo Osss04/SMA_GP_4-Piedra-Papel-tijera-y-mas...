@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/src/generated/HeaderDestinationInfo.java" charset="windows-1252" />
+    <file url="file://$PROJECT_DIR$/src/generated/HeaderOriginInfo.java" charset="windows-1252" />
+    <file url="file://$PROJECT_DIR$/src/generated/Message.java" charset="windows-1252" />
+    <file url="file://$PROJECT_DIR$/src/generated/ObjectFactory.java" charset="windows-1252" />
+    <file url="file://$PROJECT_DIR$/src/generated/TipoDeProtocolo.java" charset="windows-1252" />
+  </component>
+</project>
