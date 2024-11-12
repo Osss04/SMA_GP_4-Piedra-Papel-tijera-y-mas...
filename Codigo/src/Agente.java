@@ -1,6 +1,11 @@
+import Comunicacion.XMLUtils;
+import generated.Message;
+import generated.*;
+import java.nio.charset.StandardCharsets;
+import javax.xml.bind.JAXBException;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.*;
-import java.util.concurrent.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -381,7 +386,31 @@ public class Agente {
     }
 
 
-
+    public String generateMsg(String Com_Id, String MsgId, String Protocolo, int Protocolo_step, String Nombre_origen, String OrigenIp, BigInteger UDP_origen, BigInteger TCP_origen, long Origen_time, String Id_destino, String Ip_destino, BigInteger UDP_destino, BigInteger TCP_destino, long Destination_time) throws JAXBException {
+        Message mensaje = new Message();
+        mensaje.setComuncId(Com_Id);
+        mensaje.setMsgId(MsgId);
+        Message.Header header = new Message.Header();
+        header.setComunicationProtocol(Protocolo);
+        header.setProtocolStep(BigInteger.valueOf(Protocolo_step));
+        HeaderOriginInfo originInfo = new HeaderOriginInfo();
+        originInfo.setOriginId(Nombre_origen);
+        originInfo.setOriginIp(OrigenIp);
+        originInfo.setOriginPortUDP(UDP_origen);
+        originInfo.setOriginPortTCP(TCP_origen);
+        originInfo.setOriginTime(Origen_time);
+        HeaderDestinationInfo destinationInfo = new HeaderDestinationInfo();
+        destinationInfo.setDestinationId(Id_destino);
+        destinationInfo.setDestinationIp(Ip_destino);
+        destinationInfo.setDestinationPortUDP(UDP_destino);
+        destinationInfo.setDestinationPortTCP(TCP_destino);
+        destinationInfo.setDestinationTime(Destination_time);
+        header.setOrigin(originInfo);
+        header.setDestination(destinationInfo);
+        mensaje.setHeader(header);
+        String xml = XMLUtils.serializeMessage(mensaje);
+        return xml;
+    }
 
     // Enviar respuesta directa a otro agente
     public void sendDirectMessage(String message, InetAddress address, int puertoDestino) {
@@ -407,8 +436,10 @@ public class Agente {
     // Enviar copia del mensaje al monitor
     public void sendToMonitor(String message) {
         try (Socket socket = new Socket(monitorAddress, monitorPort);
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
-            out.println(message);
+             OutputStream out = socket.getOutputStream()) {
+            // Escribe el mensaje completo seguido por un salto de línea
+            out.write((message + "\n").getBytes(StandardCharsets.UTF_8));
+            out.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -423,12 +454,28 @@ public class Agente {
     public static void main(String[] args) throws IOException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.73.191"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.147"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
-        agente.sendToMonitor("Hola soy el agente del puerto " + agente.listeningPort);
+        int IdCom = 0;
+        int IdMsg = 0;
+        try {
+            String xmlMessage = agente.generateMsg("IdC" + IdCom, "IdM" + IdMsg, "Hola", 1, "Agent01",
+                "Origen:192.168.1.147", BigInteger.valueOf(agente.listeningPort), BigInteger.valueOf(agente.listeningPort),
+                1211L, "Monitor", "Destino:192.168.1.147", BigInteger.valueOf(monitorPort),
+                BigInteger.valueOf(monitorPort), 1211L);
+            System.out.println("Mensaje creado con exito");
+            // Enviar el mensaje XML al monitor
+            agente.sendToMonitor(xmlMessage);
+        } catch (JAXBException e) {
+            e.printStackTrace();  // Imprime el stack trace de la excepción
+            System.err.println("Error al generar el mensaje XML: " + e.getMessage());  // Mensaje de error
+        }
+        IdCom++;
+        IdMsg++;
+        //agente.sendToMonitor("Hola soy el agente del puerto " + agente.listeningPort);
 
         // Crear hilo para escuchar los mensajes de broadcast
         agente.listenForBroadcast();
