@@ -1,7 +1,5 @@
-import Comunicacion.XMLUtils;
-import generated.Message;
 
-import javax.xml.bind.JAXBException;
+
 import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
@@ -83,31 +81,17 @@ public class Monitor {
             while (true) {
                 try(Socket clientSocket = serverSocket.accept();
                     BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))){
-                    StringBuilder messageBuilder = new StringBuilder();
-                    String line;
-                    while ((line = in.readLine()) != null) {
-                        messageBuilder.append(line).append("\n");
-                    }
-                    String message = messageBuilder.toString();
+                    String message = in.readLine();
                     // Capturar la IP y el puerto del emisor
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
                     int senderPort = clientSocket.getPort();
                     // Agregar el agente a la lista
                     addAgent(senderAddress, senderPort);
-                    // Deserializar el mensaje XML
-                    try {
-                        Message receivedMessage = XMLUtils.deserializeMessage(message);
-                        //System.out.println("Mensaje"+receivedMessage);
-                        System.out.println(receivedMessage);
-                        String mensaje_string = "ID_Comunicacion "+receivedMessage.getComuncId()+". ID_Msg: "+receivedMessage.getMsgId()+". Protocolo: "+receivedMessage.getHeader().getComunicationProtocol()+". Step: "+receivedMessage.getHeader().getProtocolStep()+". ID_origen: "+receivedMessage.getHeader().getOrigin().getOriginId()+".IP_orig: "+receivedMessage.getHeader().getOrigin().getOriginIp()+". Port_orig: "+receivedMessage.getHeader().getOrigin().getOriginPortTCP();
-                        System.out.println(mensaje_string);
-                        //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
-                        //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
-                    logMessage(senderAddress, senderPort, mensaje_string);
-                    } catch (JAXBException e) {
-                        e.printStackTrace();  // Imprime el stack trace de la excepción
-                        System.err.println("Error al obtener el mensaje XML: " + e.getMessage());  // Mensaje de error
-                    }
+                    System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+                    //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
+                    //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+                    logMessage(senderAddress, senderPort, message);
+
                 } catch (IOException e) {
                     System.err.println("Error al procesar el mensaje: " + e.getMessage());
                 }//catch
