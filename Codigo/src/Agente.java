@@ -423,7 +423,7 @@ public class Agente {
     public static void main(String[] args) throws IOException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.73.191"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("172.19.184.84"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
