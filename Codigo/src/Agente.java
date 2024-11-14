@@ -4,6 +4,17 @@ import java.util.concurrent.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import java.io.StringWriter;
 
 import static java.lang.System.exit;
 
@@ -367,6 +378,78 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
 
+
+    public class MessageCreator {
+
+        public static String createHeNacidoMessage(int puerto) throws ParserConfigurationException, TransformerException {
+            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+
+            // Crear el documento XML base
+            Document doc = docBuilder.newDocument();
+            Element rootElement = doc.createElement("Message");
+            doc.appendChild(rootElement);
+
+            // Elementos de la secuencia
+            Element comuncId = doc.createElement("comunc_id");
+            comuncId.appendChild(doc.createTextNode("ID_COMUNICACION_1234"));
+            rootElement.appendChild(comuncId);
+
+            Element msgId = doc.createElement("msg_id");
+            msgId.appendChild(doc.createTextNode("ID_MENSAJE_0001"));
+            rootElement.appendChild(msgId);
+
+            Element header = doc.createElement("header");
+            rootElement.appendChild(header);
+
+            Element typeProtocol = doc.createElement("type_protocol");
+            typeProtocol.appendChild(doc.createTextNode("hola"));
+            header.appendChild(typeProtocol);
+
+            Element protocolStep = doc.createElement("protocol_step");
+            protocolStep.appendChild(doc.createTextNode("1"));
+            header.appendChild(protocolStep);
+
+            Element comunicationProtocol = doc.createElement("comunication_protocol");
+            comunicationProtocol.appendChild(doc.createTextNode("TCP"));
+            header.appendChild(comunicationProtocol);
+
+            // Crear la sección de `origin` con IP de origen
+            Element origin = doc.createElement("origin");
+            header.appendChild(origin);
+
+            Element originId = doc.createElement("origin_id");
+            originId.appendChild(doc.createTextNode("AGENTE_01"));  // Identificador único del agente
+            origin.appendChild(originId);
+
+            String localIp = null;  // Obtener la IP local del agente
+            try {
+                localIp = InetAddress.getLocalHost().getHostAddress();
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+            Element originIp = doc.createElement("origin_ip");
+            originIp.appendChild(doc.createTextNode(localIp));
+            origin.appendChild(originIp);
+
+            Element originPortTCP = doc.createElement("origin_port_TCP");
+            originPortTCP.appendChild(doc.createTextNode(String.valueOf(puerto)));  // Puerto TCP, puede ser dinámico
+            origin.appendChild(originPortTCP);
+
+            Element originTime = doc.createElement("origin_time");
+            originTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
+            origin.appendChild(originTime);
+
+            // Convertir a String
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(doc), new StreamResult(writer));
+            return writer.getBuffer().toString();
+        }
+    }
+
+
     // Enviar copia del mensaje al monitor
     public void sendToMonitor(String message) {
         try (Socket socket = new Socket(monitorAddress, monitorPort);
@@ -386,12 +469,21 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.56.1"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.147"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
-        agente.sendToMonitor("Hola soy el agente del puerto " + agente.listeningPort);
+        String msg = null;
+        try {
+            msg = MessageCreator.createHeNacidoMessage(agente.listeningPort);
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+        } catch (TransformerException e) {
+            e.printStackTrace();
+        }
+
+        agente.sendToMonitor(msg);
 
         // Crear hilo para escuchar los mensajes de broadcast
         agente.listenForBroadcast();
@@ -403,7 +495,7 @@ public class Agente {
         Thread sendBroadcastThread = new Thread(() -> {
             while (true) {
                 try {
-                    agente.sendBroadcast(""+agente.listeningPort, 5000);
+                    agente.sendBroadcast("" + agente.listeningPort, 5000);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
