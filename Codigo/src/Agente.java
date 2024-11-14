@@ -16,18 +16,23 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import java.io.StringWriter;
 
+import static java.lang.System.exit;
+
 public class Agente {
 
+    Thread listenerThread;
+    Thread listenerForBroadcast;
     private InetAddress monitorAddress;
-    private int monitorPort;
+    private Integer monitorPort;
     // private DatagramSocket sendSocket;
     private ServerSocket listenSocket; // Socket para recibir mensajes directos
-    private int listeningPort; // Puerto de listenSocket
+    private Integer listeningPort; // Puerto de listenSocket
     private List<InetAddress> ipList;
     private InetAddress ip;
-    private int netMask;
+    private Integer netMask;
     private InetAddress subNet;
     private List<AgenteConocido> agentesDescubiertos;
+    private String equipoDelAgente;
 
     public Agente(InetAddress monitorAddress, int monitorPort) throws IOException {
         this.monitorAddress = monitorAddress;
@@ -63,6 +68,37 @@ public class Agente {
         System.out.println("Numero de IPs disponibles: " + this.ipList.size());
     }
 
+    // Función de replicación del agente (se usará una vez gane los duelos)
+    public Agente replicacionDelAgente() throws IOException {
+        Agente agente = new Agente(this.monitorAddress, this.monitorPort);
+        agente.equipoDelAgente = this.equipoDelAgente;
+        return agente;
+    }
+
+    // Función de autodestrucción del agente (se usará una vez pierda los duelos)
+    private void autodestruccionDelAgente() {
+        System.out.println("a");
+        try{
+            if(listenerThread != null){
+                listenerThread.interrupt();
+                listenerThread.join(1000);
+            }
+            if(listenerForBroadcast != null){
+                listenerForBroadcast.interrupt();
+                listenerForBroadcast.join(1000);
+            }
+        }catch(InterruptedException e){
+            e.printStackTrace();
+        }
+        exit(0);
+    }
+
+    // Función de parada del agente (se usará una vez acaben los duelos y el agente acabe con vida con su equipo)
+    private void paradaDelAgente(){
+        System.out.println("Tomaaaaaaaa");
+    }
+
+    //El agente obtendra la IP a la que asociarse
     public void getIp() {
         try {
             // Obtener las interfaces de red
@@ -89,6 +125,7 @@ public class Agente {
         }
     }
 
+    //El agente obtendrá una vez tenida su IP, la máscara de red asociada
     public void getMascaraDeRed() {
         try {
             // Obtener la interfaz de red asociada a la dirección IP proporcionada
@@ -97,7 +134,7 @@ public class Agente {
                 for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) {
                     if (address.getAddress() instanceof Inet4Address && address.getAddress().equals(this.ip)) {
                         // Asignar la máscara de red
-                        this.netMask = address.getNetworkPrefixLength();
+                        this.netMask = (int) address.getNetworkPrefixLength();
                         return;
                     }
                 }
@@ -110,6 +147,7 @@ public class Agente {
         System.out.println("No se pudo encontrar la máscara de red para la dirección IP: " + this.ip);
     }
 
+    //En esta función obtendrá el agente la subred en la que estará situado
     public void getSubNet() {
         try {
             InetAddress ip = this.ip;
@@ -155,6 +193,7 @@ public class Agente {
         }
     }
 
+    //Pasar el array de bytes de 4 elementos a un entero de 32 bits
     private int bytesToInt(byte[] bytes) {
         int result = 0;
         for (byte b : bytes) {
@@ -173,6 +212,7 @@ public class Agente {
         };
     }
 
+    //El agente obtiene toda la lista de ips disponibles
     public List<InetAddress> getAvailableIPs() {
         List<InetAddress> availableIPs = new ArrayList<>();
 
@@ -203,6 +243,7 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
 
+    //Enviamos un mensaje por broadcast a cada una de las ips por cada uno de los puertos disponibles
     public void sendBroadcast(String message, int waitTime) throws IOException {
         while (true) {
             for (InetAddress ip : this.ipList) {
@@ -228,7 +269,7 @@ public class Agente {
 
     // Método para escuchar mensajes de broadcast de otros agentes y registrar su IP
     public void listenForBroadcast() {
-        new Thread(() -> {
+        listenerForBroadcast = new Thread(() -> {
             try (DatagramSocket discoverySocket = new DatagramSocket(this.listeningPort)) {
                 System.out.println("Agente escuchando mensajes de broadcast en el puerto UDP " + this.listeningPort);
 
@@ -265,88 +306,9 @@ public class Agente {
                 System.err.println("Error en la escucha de broadcast: " + e.getMessage());
                 e.printStackTrace();
             }
-        }).start();
+        });
+        listenerForBroadcast.start();
     }
-
-
-    // Enviar mensaje a todas las IPs conocidas mediante TCP
-    public void sendBroadcastTCP(String message, int waitTime) {
-        new Thread(() -> {
-            while (true) {
-                for (InetAddress ip : this.ipList) {
-                    for (int puerto = 4000; puerto <= 4300; puerto += 2) {  // Solo puertos pares
-                        try (Socket socket = new Socket()) {
-                            // Configura un timeout para evitar bloqueos en la conexión
-                            socket.connect(new InetSocketAddress(ip, puerto), 2000);
-
-                            // Envía el mensaje a través del flujo de salida
-                            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-                            out.println(message);
-
-                        } catch (IOException e) {
-                            System.err.println("Error al enviar mensaje a " + ip + " en el puerto " + puerto + ": " + e.getMessage());
-                        }
-                    }
-                }
-
-                System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
-
-                // Espera antes de enviar el siguiente mensaje
-                try {
-                    Thread.sleep(waitTime);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
-    }
-
-    // Escuchar conexiones entrantes TCP (equivalente a broadcast en TCP)
-    public void listenForBroadcastTCP() {
-        new Thread(() -> {
-            try (ServerSocket serverSocket = new ServerSocket(this.listeningPort)) {
-                System.out.println("Agente escuchando mensajes en el puerto TCP " + this.listeningPort);
-
-                while (true) {
-                    try (Socket clientSocket = serverSocket.accept();
-                         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
-
-                        InetAddress senderAddress = clientSocket.getInetAddress();
-                        String message = in.readLine();  // Lee el mensaje completo
-
-                        if (message != null) {
-                            System.out.println("Mensaje recibido de " + senderAddress + ": " + message);
-
-                            int senderPort = clientSocket.getPort();
-                            AgenteConocido nuevoAgente = new AgenteConocido(senderAddress, senderPort);
-
-                            // Ignorar si es el propio agente
-                            if (!senderAddress.equals(this.ip) || senderPort != this.listeningPort) {
-                                // Añadir a la lista de agentes descubiertos si es nuevo
-                                if (!agentesDescubiertos.contains(nuevoAgente)) {
-                                    agentesDescubiertos.add(nuevoAgente);
-                                    System.out.println("Agente añadido a la lista de conocidos: " + nuevoAgente);
-                                } else {
-                                    System.out.println("Agente ya conocido: " + nuevoAgente);
-                                }
-                            } else {
-                                System.out.println("Mensaje de propio agente ignorado.");
-                            }
-                        }
-                    } catch (IOException e) {
-                        System.err.println("Error al recibir mensaje: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            } catch (IOException e) {
-                System.err.println("Error en el socket del servidor TCP: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
-
-
 
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -356,7 +318,7 @@ public class Agente {
 
     // Escuchar mensajes directos enviados al agente
     public void listenMessages() {
-        Thread listenerThread = new Thread(() -> {
+        listenerThread = new Thread(() -> {
             try (ServerSocket listenSocket = new ServerSocket(this.listeningPort)) {
                 System.out.println("Escuchando en el puerto " + this.listeningPort);
 
@@ -405,6 +367,7 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
 
+    //Función específica de los agentes (Duelo de Piedra, Papel, Tijera, Lagarto, Spock, Bebé que tose, Papá Noel, Mesa de IKEA y Bomba de Hidrógeno)
     public void FuncionDeAgente(){
         System.out.println("UGHHH!");
     }
@@ -503,10 +466,10 @@ public class Agente {
     ////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.1.147"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.56.1"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
