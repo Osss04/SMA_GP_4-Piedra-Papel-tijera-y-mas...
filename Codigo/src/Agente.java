@@ -469,7 +469,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.56.1"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.147"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
