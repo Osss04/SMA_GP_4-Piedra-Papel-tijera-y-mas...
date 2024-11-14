@@ -6,6 +6,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 // Esto por ahora salvo error, ya está listo	    
 
@@ -86,11 +91,14 @@ public class Monitor {
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
                     int senderPort = clientSocket.getPort();
                     // Agregar el agente a la lista
+                    Document xmlDoc = parseXMLFromString(message);
                     addAgent(senderAddress, senderPort);
-                    System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+                    String typeProtocol = getElementValue(xmlDoc, "type_protocol");
+                    String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");
+                    System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + typeProtocol);
                     //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
                     //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
-                    logMessage(senderAddress, senderPort, message);
+                    logMessage(senderAddress, senderPort, mensaje);
 
                 } catch (IOException e) {
                     System.err.println("Error al procesar el mensaje: " + e.getMessage());
@@ -105,8 +113,35 @@ public class Monitor {
             } catch (InterruptedException ie) {
                 System.err.println("Monitor interrumpido durante el tiempo de espera de reconexión.");
             }//catch
-        }//cathc
+        }//catch
     }//listenToMessages
+
+    ///////////////////////////////////////////////////
+    //Parsear el XML de String a Document
+    //////////////////////////////////////////////////
+    private Document parseXMLFromString(String xmlString) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            return builder.parse(new java.io.ByteArrayInputStream(xmlString.getBytes()));
+        } catch (Exception e) {
+            System.err.println("Error al parsear el XML: " + e.getMessage());
+            return null;
+        }
+    }
+
+    //////////////////////////////////////////////////
+    //Obtener el valor de un elemento por su nombre en el XML
+    //////////////////////////////////////////////////
+    private String getElementValue(Document doc, String tagName) {
+        NodeList nodeList = doc.getElementsByTagName(tagName);
+        if (nodeList.getLength() > 0) {
+            return nodeList.item(0).getTextContent();
+        } else {
+            return null; // Elemento no encontrado
+        }
+    }
+
 
     ///////////////////////////////////////////////////////////
     //////////Registar agente en la lista de agentes
