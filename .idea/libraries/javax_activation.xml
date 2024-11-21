@@ -1,0 +1,12 @@
+<component name="libraryTable">
+  <library name="javax.activation">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Desktop/Universidad/Cuarto año/Primer Cuatrimestre/Sistemas Multiagentes/Trabajos/TRABAJO DE SMA TOCHO/Librerías necesarias/Librerías necesarias/javax.activation.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/Desktop/Universidad/Cuarto año/Primer Cuatrimestre/Sistemas Multiagentes/Trabajos/TRABAJO DE SMA TOCHO/Librerías necesarias/Librerías necesarias/jaxb-api-2.3.1-javadoc.jar!/" />
+      <root url="jar://$USER_HOME$/Desktop/Universidad/Cuarto año/Primer Cuatrimestre/Sistemas Multiagentes/Trabajos/TRABAJO DE SMA TOCHO/Librerías necesarias/Librerías necesarias/jaxb-runtime-2.4.0-b180725.0644-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES />
+  </library>
+</component>
