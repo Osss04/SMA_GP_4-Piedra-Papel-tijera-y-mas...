@@ -77,41 +77,37 @@ public class Agente {
     // Función de replicación del agente (se usará una vez gane los duelos)
     // Permite que un agente se duplique tras ganar los duelos contra otro. Provocando que el agente sea del mismo equipo
     public void replicacionDelAgente() throws IOException {
-
-        ProcessBuilder processBuilder = new ProcessBuilder("java","-cp","C:/Users/Usuario/IdeaProjects/Proyecto SMA cuarto año/Codigo/src", "Agente");
+        //ProcessBuilder processBuilder = new ProcessBuilder("java","-cp","C:/Users/Usuario/IdeaProjects/Proyecto SMA cuarto año/Codigo/src", "Agente");
         //ProcessBuilder processBuilder = new ProcessBuilder("java","-cp","C:/Users/Usuario/IdeaProjects/Proyecto SMA cuarto año/Codigo/out/production/cosoSMA", "Agente");
-        //ProcessBuilder processBuilder = new ProcessBuilder("java", "Agente");
+        ProcessBuilder processBuilder = new ProcessBuilder("java", "Agente");
         processBuilder.start();
-
     }
 
     // Función de autodestrucción del agente (se usará una vez pierda los duelos)
-    private void autodestruccionDelAgente() {
+    private void autodestruccionDelAgente() throws InterruptedException {
         System.out.println("Me muero a");
-        try{
-            if(sendBroadcastThread != null){
-                sendBroadcastThread.interrupt();
-                sendBroadcastThread.join(2000);
-            }
-
-            if(listenerThread != null){
-                listenerThread.interrupt();
-                listenerThread.join(2000);
-            }
-
-            if(listenerForBroadcast != null){
-                listenerForBroadcast.interrupt();
-                listenerForBroadcast.join(2000);
-            }
-        }catch(InterruptedException e){
-            e.printStackTrace();
+        if(listenerThread != null){
+            listenerThread.interrupt();
+            listenerThread.join(2000);
         }
-        exit(0);
+        if(listenerForBroadcast != null) {
+            listenerForBroadcast.interrupt();
+            listenerForBroadcast.join(2000);
+        }
+        if(sendBroadcastThread != null){
+            sendBroadcastThread.interrupt();
+            sendBroadcastThread.join(2000);
+        }
+        System.exit(0);
     }
 
     // Función de parada del agente (se usará una vez acaben los duelos y el agente acabe con vida con su equipo)
-    private void paradaDelAgente(){
+    private synchronized void paradaDelAgente() throws InterruptedException {
         System.out.println("Tomaaaaaaaa");
+    }
+
+    private void continuarAgente(){
+        System.out.println("Allevoy");
     }
 
     //El agente obtendra la IP a la que asociarse
@@ -260,7 +256,7 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     //Enviamos un mensaje por broadcast a cada una de las ips por cada uno de los puertos disponibles
-    public void sendBroadcast(String message, int waitTime) throws IOException {
+    public void sendBroadcast(String message, int waitTime) throws InterruptedException{
         sendBroadcastThread = new Thread(() -> {
             while (!sendBroadcastThread.isInterrupted()) {
                 for (InetAddress ip : this.ipList) {
@@ -273,14 +269,18 @@ public class Agente {
                             }
                         }
                     } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
                 System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
+                /*
                 try {
                     Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    System.out.println("Envio de mensajes cerrado");
                 }
+
+                 */
             }
         });
         sendBroadcastThread.start();
@@ -559,7 +559,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("172.19.148.96"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.139"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
