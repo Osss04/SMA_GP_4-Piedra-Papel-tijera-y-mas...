@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -45,6 +46,20 @@ public class Monitor {
                     '}';
         }//to string
 
+        // Equals
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Agent agent = (Agent) o;
+            return port == agent.port && ip.equals(agent.ip);
+        }
+
+        // HashCode
+        @Override
+        public int hashCode() {
+            return Objects.hash(ip, port);
+        }
     }//Agent class
 
     ///////////////////////////////////////////////////////////
@@ -92,17 +107,26 @@ public class Monitor {
                     // Capturar la IP y el puerto del emisor
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
                     int senderPort = clientSocket.getPort();
-                    // Agregar el agente a la lista
                     Document xmlDoc = parseXMLFromString(message);
-                    File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
+                    File xsdFile = new File("Codigo/esquema_AG_basico.xsd"); // Ruta del archivo XSD
                     boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
-                    addAgent(senderAddress, senderPort);
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
-                    String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");
-                    System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + typeProtocol);
-                    //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
-                    //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
-                    logMessage(senderAddress, senderPort, mensaje);
+                    switch (typeProtocol){
+                        case "hola":
+                            addAgent(senderAddress, senderPort);
+                            String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");
+                            System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + typeProtocol);
+                            //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
+                            //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+                            logMessage(senderAddress, senderPort, mensaje);
+                            break;
+                        case "Me mueroooo":
+                            System.out.println("Se eliminará el agente correspondiente:");
+                            removeAgent(senderAddress,senderPort);
+                            break;
+                    }
+
+
 
                 } catch (IOException e) {
                     System.err.println("Error al procesar el mensaje: " + e.getMessage());
@@ -157,6 +181,26 @@ public class Monitor {
         agentesJuego.add(nuevoAgente); // Agregar el agente a la lista
         System.out.println("Agente agregado: " + nuevoAgente);
     }
+
+    /*
+    Autor: Óscar
+    Fecha: 26/11/2024
+    Función: Elimina un objeto agente de la clase monitor en caso de que se reciba un
+    mensaje de Me mueroooooo
+     */
+    public void removeAgent(String ip, int port) {
+        // Crear un objeto temporal Agente para buscar
+        Agent agenteAEliminar = new Agent(ip, port);
+
+        // Intentar eliminar el agente de la lista
+        if (agentesJuego.remove(agenteAEliminar)) {
+            System.out.println("Agente eliminado: " + agenteAEliminar);
+        } else {
+            System.out.println("No se encontró el agente: " + agenteAEliminar);
+        }
+    }
+
+
     ///////////////////////////////////////////////////////////
     //////////Registar mensaje en el monitor
     //////////////////////////////////////////////////////////
