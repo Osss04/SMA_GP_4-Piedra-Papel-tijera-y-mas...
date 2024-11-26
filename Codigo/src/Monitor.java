@@ -8,6 +8,8 @@ import java.util.Date;
 import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+
+import XML.XMLValidator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -92,6 +94,8 @@ public class Monitor {
                     int senderPort = clientSocket.getPort();
                     // Agregar el agente a la lista
                     Document xmlDoc = parseXMLFromString(message);
+                    File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
+                    boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
                     addAgent(senderAddress, senderPort);
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
                     String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");

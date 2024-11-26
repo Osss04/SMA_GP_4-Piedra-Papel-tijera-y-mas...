@@ -8,10 +8,13 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+
+import com.sun.tools.javac.Main;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import java.io.StringWriter;
@@ -20,20 +23,23 @@ import static java.lang.System.exit;
 
 public class Agente {
 
-    Thread listenerThread;
-    Thread listenerForBroadcast;
-    private InetAddress monitorAddress;
-    private Integer monitorPort;
+    Thread sendBroadcastThread; // Hilo del agente para enviar los mensajes de Broadcast
+    Thread listenerThread; // Hilo del agente que escucha mensajes directos recibidos
+    Thread listenerForBroadcast; // Hilo del agente que escucha mensajes de broadcast de otros agentes y registra su IP
+    private InetAddress monitorAddress; // Dirección IP del monitor al que mandará cierta información el agente
+    private Integer monitorPort; // Puerto por el que se comunicarán los agentes con el monitor
     // private DatagramSocket sendSocket;
     private ServerSocket listenSocket; // Socket para recibir mensajes directos
     private Integer listeningPort; // Puerto de listenSocket
-    private List<InetAddress> ipList;
-    private InetAddress ip;
-    private Integer netMask;
-    private InetAddress subNet;
-    private List<AgenteConocido> agentesDescubiertos;
-    private String equipoDelAgente;
+    private List<InetAddress> ipList; // Listas de Ips disponibles encontradas por el agente
+    private InetAddress ip; // Ip del agente
+    private Integer netMask; // Máscara de la red en la que se encuentra el agente
+    private InetAddress subNet; // Submáscara de la red en la que se encuentra el agente
+    private List<AgenteConocido> agentesDescubiertos; // Lista de todos los agentes registrados de un agente con los que se ha comunicado
+    private String equipoDelAgente; // Equipo al que pertenece el agente antes de empezar los duelos
 
+
+    // Método constructor del agente donde se hará la búsqueda de nido y se asignará un puerto y IP para comunicarse
     public Agente(InetAddress monitorAddress, int monitorPort) throws IOException {
         this.monitorAddress = monitorAddress;
         this.monitorPort = monitorPort;
@@ -69,33 +75,39 @@ public class Agente {
     }
 
     // Función de replicación del agente (se usará una vez gane los duelos)
-    public Agente replicacionDelAgente() throws IOException {
-        Agente agente = new Agente(this.monitorAddress, this.monitorPort);
-        agente.equipoDelAgente = this.equipoDelAgente;
-        return agente;
+    // Permite que un agente se duplique tras ganar los duelos contra otro. Provocando que el agente sea del mismo equipo
+    public void replicacionDelAgente() throws IOException {
+        //ProcessBuilder processBuilder = new ProcessBuilder("java","-cp","C:/Users/Usuario/IdeaProjects/Proyecto SMA cuarto año/Codigo/src", "Agente");
+        //ProcessBuilder processBuilder = new ProcessBuilder("java","-cp","C:/Users/Usuario/IdeaProjects/Proyecto SMA cuarto año/Codigo/out/production/cosoSMA", "Agente");
+        ProcessBuilder processBuilder = new ProcessBuilder("java", "Agente");
+        processBuilder.start();
     }
 
     // Función de autodestrucción del agente (se usará una vez pierda los duelos)
-    private void autodestruccionDelAgente() {
-        System.out.println("a");
-        try{
-            if(listenerThread != null){
-                listenerThread.interrupt();
-                listenerThread.join(1000);
-            }
-            if(listenerForBroadcast != null){
-                listenerForBroadcast.interrupt();
-                listenerForBroadcast.join(1000);
-            }
-        }catch(InterruptedException e){
-            e.printStackTrace();
+    private void autodestruccionDelAgente() throws InterruptedException {
+        System.out.println("Me muero a");
+        if(listenerThread != null){
+            listenerThread.interrupt();
+            listenerThread.join(2000);
         }
-        exit(0);
+        if(listenerForBroadcast != null) {
+            listenerForBroadcast.interrupt();
+            listenerForBroadcast.join(2000);
+        }
+        if(sendBroadcastThread != null){
+            sendBroadcastThread.interrupt();
+            sendBroadcastThread.join(2000);
+        }
+        System.exit(0);
     }
 
     // Función de parada del agente (se usará una vez acaben los duelos y el agente acabe con vida con su equipo)
-    private void paradaDelAgente(){
+    private synchronized void paradaDelAgente() throws InterruptedException {
         System.out.println("Tomaaaaaaaa");
+    }
+
+    private void continuarAgente(){
+        System.out.println("Allevoy");
     }
 
     //El agente obtendra la IP a la que asociarse
@@ -244,38 +256,45 @@ public class Agente {
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     //Enviamos un mensaje por broadcast a cada una de las ips por cada uno de los puertos disponibles
-    public void sendBroadcast(String message, int waitTime) throws IOException {
-        while (true) {
-            for (InetAddress ip : this.ipList) {
-                try (DatagramSocket socket = new DatagramSocket()) {
-                    byte[] buffer = message.getBytes();
-                    for (int puerto = 4000; puerto <= 4300; puerto++) {
-                        if (puerto % 2 == 0) {
-                            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, ip, puerto);
-                            socket.send(packet);
+    public void sendBroadcast(String message, int waitTime) throws InterruptedException{
+        sendBroadcastThread = new Thread(() -> {
+            while (!sendBroadcastThread.isInterrupted()) {
+                for (InetAddress ip : this.ipList) {
+                    try (DatagramSocket socket = new DatagramSocket()) {
+                        byte[] buffer = message.getBytes();
+                        for (int puerto = 4000; puerto <= 4300; puerto++) {
+                            if (puerto % 2 == 0) {
+                                DatagramPacket packet = new DatagramPacket(buffer, buffer.length, ip, puerto);
+                                socket.send(packet);
+                            }
                         }
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
-                } catch (IOException e) {
                 }
+                System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
+                /*
+                try {
+                    Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
+                } catch (InterruptedException e) {
+                    System.out.println("Envio de mensajes cerrado");
+                }
+
+                 */
             }
-            System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
-            try {
-                Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        });
+        sendBroadcastThread.start();
     }
 
     // Método para escuchar mensajes de broadcast de otros agentes y registrar su IP
     public void listenForBroadcast() {
         listenerForBroadcast = new Thread(() -> {
             try (DatagramSocket discoverySocket = new DatagramSocket(this.listeningPort)) {
-                System.out.println("Agente escuchando mensajes de broadcast en el puerto UDP " + this.listeningPort);
-
+                //System.out.println("Agente escuchando mensajes de broadcast en el puerto UDP " + this.listeningPort);
                 byte[] buffer = new byte[1024];
 
-                while (true) {
+                while (!listenerForBroadcast.isInterrupted()) {
+
                     DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                     discoverySocket.receive(packet);  // Recibe el mensaje de broadcast
 
@@ -322,7 +341,8 @@ public class Agente {
             try (ServerSocket listenSocket = new ServerSocket(this.listeningPort)) {
                 System.out.println("Escuchando en el puerto " + this.listeningPort);
 
-                while (true) {
+                while (!listenerThread.isInterrupted()) {
+
                     try (Socket clientSocket = listenSocket.accept();
                          BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                          PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
@@ -346,7 +366,10 @@ public class Agente {
                         e.printStackTrace();
                     }
                 }
-            } catch (IOException e) {
+            } catch (BindException y) {
+                System.out.println("Escucho mensajes");
+            }
+            catch (IOException e) {
                 e.printStackTrace();
             }
         });
@@ -447,6 +470,73 @@ public class Agente {
             transformer.transform(new DOMSource(doc), new StreamResult(writer));
             return writer.getBuffer().toString();
         }
+
+        public static String createHeMuertoMessage(int puerto) throws TransformerException, ParserConfigurationException {
+            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+
+            // Crear el documento XML base
+            Document doc = docBuilder.newDocument();
+            Element rootElement = doc.createElement("Message");
+            doc.appendChild(rootElement);
+
+            // Elementos de la secuencia
+            Element comuncId = doc.createElement("comunc_id");
+            comuncId.appendChild(doc.createTextNode("ID_COMUNICACION_1234"));
+            rootElement.appendChild(comuncId);
+
+            Element msgId = doc.createElement("msg_id");
+            msgId.appendChild(doc.createTextNode("ID_MENSAJE_0001"));
+            rootElement.appendChild(msgId);
+
+            Element header = doc.createElement("header");
+            rootElement.appendChild(header);
+
+            Element typeProtocol = doc.createElement("type_protocol");
+            typeProtocol.appendChild(doc.createTextNode("Me muerooooooo"));
+            header.appendChild(typeProtocol);
+
+            Element protocolStep = doc.createElement("protocol_step");
+            protocolStep.appendChild(doc.createTextNode("1"));
+            header.appendChild(protocolStep);
+
+            Element comunicationProtocol = doc.createElement("comunication_protocol");
+            comunicationProtocol.appendChild(doc.createTextNode("TCP"));
+            header.appendChild(comunicationProtocol);
+
+            // Crear la sección de `origin` con IP de origen
+            Element origin = doc.createElement("origin");
+            header.appendChild(origin);
+
+            Element originId = doc.createElement("origin_id");
+            originId.appendChild(doc.createTextNode("AGENTE_01"));  // Identificador único del agente
+            origin.appendChild(originId);
+
+            String localIp = null;  // Obtener la IP local del agente
+            try {
+                localIp = InetAddress.getLocalHost().getHostAddress();
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+            Element originIp = doc.createElement("origin_ip");
+            originIp.appendChild(doc.createTextNode(localIp));
+            origin.appendChild(originIp);
+
+            Element originPortTCP = doc.createElement("origin_port_TCP");
+            originPortTCP.appendChild(doc.createTextNode(String.valueOf(puerto)));  // Puerto TCP, puede ser dinámico
+            origin.appendChild(originPortTCP);
+
+            Element originTime = doc.createElement("origin_time");
+            originTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
+            origin.appendChild(originTime);
+
+            // Convertir a String
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(doc), new StreamResult(writer));
+            return writer.getBuffer().toString();
+        }
     }
 
 
@@ -469,7 +559,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.1.147"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.139"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
@@ -491,19 +581,12 @@ public class Agente {
         // Crear hilo para escuchar mensajes TCP
         agente.listenMessages();
 
-        // Crear hilo para enviar mensajes periódicos
-        Thread sendBroadcastThread = new Thread(() -> {
-            while (true) {
-                try {
-                    agente.sendBroadcast("" + agente.listeningPort, 5000);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+        // Crear hilo de envío de broadcast
+        agente.sendBroadcast("" + agente.listeningPort, 5000);
 
-        // Iniciar el hilo de envío de broadcast
-        sendBroadcastThread.start();
+        //agente.replicacionDelAgente();
+
+        //agente.autodestruccionDelAgente();
 
         // Crear Hilo que mande por broadcast mensajes "Hola"
         // Crear Hilo que escuche mensajes
