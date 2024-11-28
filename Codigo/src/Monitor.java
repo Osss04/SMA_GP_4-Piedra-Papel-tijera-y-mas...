@@ -108,8 +108,8 @@ public class Monitor {
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
                     int senderPort = clientSocket.getPort();
                     Document xmlDoc = parseXMLFromString(message);
-                    File xsdFile = new File("Codigo/esquema_AG_basico.xsd"); // Ruta del archivo XSD
-                    boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
+                    File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
+                    //boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
                     switch (typeProtocol){
                         case "hola":
