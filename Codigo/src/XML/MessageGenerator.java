@@ -80,6 +80,39 @@ public class MessageGenerator {
         originTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
         origin.appendChild(originTime);
 
+        Element destination = doc.createElement("destination");
+        header.appendChild(destination);
+
+        Element destinationId = doc.createElement("destination_id");
+        destinationId.appendChild(doc.createTextNode(destinoID));
+        destination.appendChild(destinationId);
+
+        Element destinationIp = doc.createElement("destination_ip");
+        destinationIp.appendChild(doc.createTextNode(destinoIP));
+        destination.appendChild(destinationIp);
+
+        Element destinationPortUDP = doc.createElement("destination_port_UDP");
+        destinationPortUDP.appendChild(doc.createTextNode("0"));
+        destination.appendChild(destinationPortUDP);
+
+        Element destinationPortTCP = doc.createElement("destination_port_TCP");
+        destinationPortTCP.appendChild(doc.createTextNode(String.valueOf(puerto)));
+        destination.appendChild(destinationPortTCP);
+
+        Element destinationTime = doc.createElement("destination_time");
+        destinationTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
+        destination.appendChild(destinationTime);
+
+        Element body = doc.createElement("body");
+        rootElement.appendChild(body);
+
+        Element bodyInfo = doc.createElement("body_info");
+        bodyInfo.appendChild(doc.createTextNode("Info"));
+        body.appendChild(bodyInfo);
+
+        Element commonContent = doc.createElement("common_content");
+        rootElement.appendChild(commonContent);
+
         // Convertir a String
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
         Transformer transformer = transformerFactory.newTransformer();
@@ -146,6 +179,39 @@ public class MessageGenerator {
         Element originTime = doc.createElement("origin_time");
         originTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
         origin.appendChild(originTime);
+
+        Element destination = doc.createElement("destination");
+        header.appendChild(destination);
+
+        Element destinationId = doc.createElement("destination_id");
+        destinationId.appendChild(doc.createTextNode(destinoID));
+        destination.appendChild(destinationId);
+
+        Element destinationIp = doc.createElement("destination_ip");
+        destinationIp.appendChild(doc.createTextNode(destinoIP));
+        destination.appendChild(destinationIp);
+
+        Element destinationPortUDP = doc.createElement("destination_port_UDP");
+        destinationPortUDP.appendChild(doc.createTextNode("0"));
+        destination.appendChild(destinationPortUDP);
+
+        Element destinationPortTCP = doc.createElement("destination_port_TCP");
+        destinationPortTCP.appendChild(doc.createTextNode(String.valueOf(puerto)));
+        destination.appendChild(destinationPortTCP);
+
+        Element destinationTime = doc.createElement("destination_time");
+        destinationTime.appendChild(doc.createTextNode(String.valueOf(System.currentTimeMillis())));
+        destination.appendChild(destinationTime);
+
+        Element body = doc.createElement("body");
+        rootElement.appendChild(body);
+
+        Element bodyInfo = doc.createElement("body_info");
+        bodyInfo.appendChild(doc.createTextNode("Info"));
+        body.appendChild(bodyInfo);
+
+        Element commonContent = doc.createElement("common_content");
+        rootElement.appendChild(commonContent);
 
         // Convertir a String
         TransformerFactory transformerFactory = TransformerFactory.newInstance();

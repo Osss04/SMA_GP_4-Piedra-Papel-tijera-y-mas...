@@ -274,14 +274,14 @@ public class Agente {
                     }
                 }
                 System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
-                /*
+
                 try {
                     Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
                 } catch (InterruptedException e) {
                     System.out.println("Envio de mensajes cerrado");
                 }
 
-                 */
+
             }
         });
         sendBroadcastThread.start();
@@ -447,9 +447,9 @@ public class Agente {
         // Crear hilo de envío de broadcast
         agente.sendBroadcast("" + agente.listeningPort, 5000);
 
-        //agente.replicacionDelAgente();
+        agente.replicacionDelAgente();
 
-        //agente.autodestruccionDelAgente();
+        agente.autodestruccionDelAgente();
 
         // Crear Hilo que mande por broadcast mensajes "Hola"
         // Crear Hilo que escuche mensajes
