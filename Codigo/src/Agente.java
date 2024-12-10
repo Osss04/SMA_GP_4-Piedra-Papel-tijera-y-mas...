@@ -87,6 +87,15 @@ public class Agente {
     // Función de autodestrucción del agente (se usará una vez pierda los duelos)
     private void autodestruccionDelAgente() throws InterruptedException {
         System.out.println("Me muero a");
+        String msg = null;
+        try {
+            msg = MessageGenerator.createHeMuertoMessage(this.listeningPort,"Com1","Msg1","Agente_01",this.ip.toString(),"Monitor","192.168.1.168");
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+        } catch (TransformerException e) {
+            e.printStackTrace();
+        }
+        this.sendToMonitor(msg);
         if(listenerThread != null){
             listenerThread.interrupt();
             listenerThread.join(2000);
@@ -274,14 +283,12 @@ public class Agente {
                     }
                 }
                 System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
-                /*
+
                 try {
                     Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
                 } catch (InterruptedException e) {
                     System.out.println("Envio de mensajes cerrado");
                 }
-
-                 */
             }
         });
         sendBroadcastThread.start();
@@ -422,14 +429,14 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.56.1"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.139"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
         String msg = null;
         try {
-            msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort,"Com1","Msg1","Agente_01",agente.ip.toString(),"Monitor","192.168.56.1");
+            msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort,"Com1","Msg1","Agente_01",agente.ip.toString(),"Monitor","192.168.1.139");
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (TransformerException e) {
@@ -449,7 +456,7 @@ public class Agente {
 
         //agente.replicacionDelAgente();
 
-        //agente.autodestruccionDelAgente();
+        agente.autodestruccionDelAgente();
 
         // Crear Hilo que mande por broadcast mensajes "Hola"
         // Crear Hilo que escuche mensajes
