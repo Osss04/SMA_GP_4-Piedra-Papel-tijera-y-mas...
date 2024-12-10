@@ -454,7 +454,7 @@ public class Agente {
         // Crear hilo de envío de broadcast
         agente.sendBroadcast("" + agente.listeningPort, 5000);
 
-        //agente.replicacionDelAgente();
+        agente.replicacionDelAgente();
 
         agente.autodestruccionDelAgente();
 
