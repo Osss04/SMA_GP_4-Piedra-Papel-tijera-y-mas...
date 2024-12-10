@@ -429,14 +429,14 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.1.139"); // Reemplazar
+        InetAddress monitorAddress = InetAddress.getByName("192.168.1.180"); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
 
         String msg = null;
         try {
-            msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort,"Com1","Msg1","Agente_01",agente.ip.toString(),"Monitor","192.168.1.139");
+            msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort,"Com1","Msg1","Agente_01",agente.ip.toString(),"Monitor","192.168.1.180");
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (TransformerException e) {
