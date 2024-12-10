@@ -104,13 +104,15 @@ public class Monitor {
                 try(Socket clientSocket = serverSocket.accept();
                     BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))){
                     String message = in.readLine();
+                    System.out.println(message);
                     // Capturar la IP y el puerto del emisor
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
-                    int senderPort = clientSocket.getPort();
+                    //int senderPort = clientSocket.getPort();
                     Document xmlDoc = parseXMLFromString(message);
                     File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
                     //boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
+                    int senderPort = Integer.parseInt(getElementValue(xmlDoc, "origin_port_TCP"));
                     switch (typeProtocol){
                         case "hola":
                             addAgent(senderAddress, senderPort);
