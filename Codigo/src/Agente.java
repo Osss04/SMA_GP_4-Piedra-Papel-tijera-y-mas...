@@ -446,6 +446,7 @@ public class Agente {
      * @return: 0 si el agente (yo) pierde, 1 si el agente (yo) gana, 2 si hay
      * empate
      */
+
     public int resolverDuelo(String equipoRival) {
 
         // Si el agente rival es del mismo equipo que el agente (yo)
