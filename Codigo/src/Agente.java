@@ -29,6 +29,11 @@ import java.time.format.DateTimeFormatter;
 
 public class Agente {
 
+    final String ANSI_GREEN = "\u001B[32m";
+    final String ANSI_RESET = "\u001B[0m";
+    final String ANSI_YELLOW = "\u001B[33m";
+    final String ANSI_BLUE = "\u001B[34m";
+
     Thread sendBroadcastThread; // Hilo del agente para enviar los mensajes de Broadcast
     Thread listenerThread; // Hilo del agente que escucha mensajes directos recibidos
     Thread listenerForBroadcast; // Hilo del agente que escucha mensajes de broadcast de otros agentes y registra
@@ -105,9 +110,9 @@ public class Agente {
         opciones.add("Lagarto");
         opciones.add("Spock");
         opciones.add("Bebe_que_tose");
-        opciones.add("Papa_Noel");
+        opciones.add("Santa_Claus");
         opciones.add("Mesa_de_IKEA");
-        opciones.add("Bomba_de_Hidrógeno");
+        opciones.add("Bomba_de_Hidrogeno");
 
         // se generan 2 opciones al azar
         int i1 = random.nextInt(opciones.size());
@@ -155,7 +160,7 @@ public class Agente {
         String msg = null;
         try {
             msg = MessageGenerator.createHeMuertoMessage(this.listeningPort, "Com1", "Msg1", "Agente_01",
-                    this.ip.toString(), "Monitor", "192.168.1.168");
+                    this.ip.toString(), "Monitor", "192.168.1.168", this.equipoDelAgente);
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (TransformerException e) {
@@ -446,9 +451,13 @@ public class Agente {
 
     // Escuchar mensajes directos enviados al agente
     public void listenMessages() {
-        listenerThread = new Thread(() -> {
-            try (ServerSocket listenSocket = new ServerSocket(this.listeningPort)) {
+        listenerThread = new Thread(() -> { //antes era this.listeningPort ####################################################DISCLAIMER
+            try (ServerSocket listenSocket = new ServerSocket(this.listeningPort+1)) {
                 System.out.println("Escuchando en el puerto " + this.listeningPort);
+                System.out.println("aqui");
+                //realiza función del agente
+
+                FuncionDeAgente();
 
                 while (!listenerThread.isInterrupted()) {
 
@@ -461,7 +470,111 @@ public class Agente {
 
 
                         String receivedMessage;
+                        System.out.println("aqui va");
                         while ((receivedMessage = in.readLine()) != null) {
+                            Document xmlDoc = parseXMLFromString(receivedMessage);
+                            File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
+                            String protocolo = getElementValue(xmlDoc, "type_protocol");
+                            String ipOrigen = getElementValue(xmlDoc, "origin_ip");
+                            InetAddress ipRec = InetAddress.getByName(ipOrigen);
+                            String oriPuerto = getElementValue(xmlDoc, "origin_port_TCP");
+
+                            String equipo_reci = getElementValue(xmlDoc, "body_info");
+                            //System.out.println(ANSI_BLUE +"IP Y PUERTO DEL QUE RECIBE_"+ipRec+","+oriPuerto+ANSI_RESET);
+                            switch (protocolo){
+                                case "duelo":
+                                    //tomar decision de si luchar o no, en caso,
+                                    String decision = resolverDecision(equipo_reci); //FUNCION DE COPETE PARA PROCESAR SI PELEAR O NO
+                                    if (decision == "Atacar"){
+                                        String mensaje = MessageGenerator.createAceptoDueloMessage(this.listeningPort, "Com1", "Msg1", this.idAgente,
+                                                this.ip.toString(), "dest1",ipRec.toString(), this.equipoDelAgente);
+                                        try (Socket socket = new Socket(ipRec, Integer.parseInt(oriPuerto));
+                                             OutputStream outputStream = socket.getOutputStream();
+                                             PrintWriter writer = new PrintWriter(outputStream, true)) {
+
+                                            // Enviar el mensaje
+                                            writer.println(mensaje);
+                                            System.out.println("mensaje enviado a"+ipRec+":"+oriPuerto);
+
+                                        } catch (Exception e) {
+                                            //e.printStackTrace();
+                                            System.err.println("Error al enviar el mensaje.");
+                                        }
+                                    if (decision == "Huir")    {
+                                        System.out.println(ANSI_BLUE+"SALIO CAGONETA, NO PELEO"+ANSI_RESET);
+                                        String mensajeHuye = MessageGenerator.createRechazoDueloMessage(this.listeningPort, "Com1", "Msg1", this.idAgente,
+                                                this.ip.toString(), "dest1",ipRec.toString(), this.equipoDelAgente);
+                                        //manda mensaje
+                                        try (Socket socket = new Socket(ipRec, Integer.parseInt(oriPuerto));
+                                             OutputStream outputStream = socket.getOutputStream();
+                                             PrintWriter writer = new PrintWriter(outputStream, true)) {
+
+                                            // Enviar el mensaje
+                                            writer.println(mensajeHuye);
+                                            System.out.println("mensaje enviado a"+ipRec+":"+oriPuerto);
+
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                            System.err.println("Error al enviar el mensaje.");
+                                        }
+                                    }
+
+                                    }
+                                    FuncionDeAgente();
+                                    break;
+                                case "rechazoDuelo":
+                                    System.out.println(ANSI_BLUE +ipRec+":"+oriPuerto+" ME HA RECHAZO EL DUELO NOOOOOOOOOOOOOOOOOOO"+ANSI_RESET);
+                                    System.out.println(ANSI_BLUE +"NI MODO, TOCA PELEAR OTRA VEZ "+ANSI_RESET);
+                                    FuncionDeAgente();
+                                case "aceptoDuelo":
+                                    System.out.println(ANSI_BLUE +ipRec+":"+oriPuerto+" ME HA ACEPTADO EL DUELO, LUCHEMOS!"+ANSI_RESET);
+                                    System.out.println(ANSI_BLUE+"VAMOS AQUI, MI EQUIPO:"+this.equipoDelAgente+"VS"+equipo_reci+ANSI_RESET);
+                                    int resultado = resolverDuelo(equipo_reci);
+
+                                    if (resultado==1){
+                                        System.out.println(ANSI_BLUE +"TE GANE JAJAJAJAJ"+ANSI_RESET);
+                                        String mensajeEnviar = MessageGenerator.createGanoDueloMessage(this.listeningPort, "Com1", "Msg1", this.idAgente,
+                                                this.ip.toString(), "dest1",ipRec.toString(), this.equipoDelAgente); //mensaje para indicar al otro agente que debe replicarse
+                                        //manda mensaje
+                                        try (Socket socket = new Socket(ipRec, Integer.parseInt(oriPuerto));
+                                             OutputStream outputStream = socket.getOutputStream();
+                                             PrintWriter writer = new PrintWriter(outputStream, true)) {
+
+                                            // Enviar el mensaje
+                                            writer.println(mensajeEnviar);
+                                            System.out.println("mensaje enviado a"+ipRec+":"+oriPuerto);
+
+                                        } catch (Exception e) {
+                                            //e.printStackTrace();
+                                            System.err.println("Error al enviar el mensaje.");
+                                        }
+                                    }
+                                    if(resultado ==0){
+                                        System.out.println(ANSI_BLUE+"ME CACHIS, PERDI :C"+ANSI_RESET);
+                                        /*
+                                        DISCLAIMER: AQUÍ HAY QUE ELIMINAR AL AGENTE Y REPLICARLO CON EL EQUIPO
+                                         //NO HACE FALTA MANDAR MENSAJE AL MONITOR, CUANDO EL NUEVO REPLICADO HAGA EL HENACIDO YA SE LO DEBERÍA COMUNICAR AL MONITOR
+                                         */
+                                    }
+                                    if(resultado == 2){
+                                        System.out.println(ANSI_BLUE+"BRO QUE SOMOS DEL MISMO EQUIPO CHILL"+ANSI_RESET);
+                                        FuncionDeAgente(); //toca luchar otra vez si somos del mismo equipo bro
+                                    }
+                                    FuncionDeAgente();
+                                    break;
+                                case "gano_duelo":
+                                    //si recibo un mensaje de gano_duelo es porque evidentemente me han ganado
+                                    System.out.println(ANSI_BLUE+"AHORA ME TOCA REPLICARME"+ANSI_RESET);
+                                    /*
+                                        DISCLAIMER: AQUÍ HAY QUE ELIMINAR AL AGENTE Y REPLICARLO CON EL EQUIPO
+                                         //NO HACE FALTA MANDAR MENSAJE AL MONITOR, CUANDO EL NUEVO REPLICADO HAGA EL HENACIDO YA SE LO DEBERÍA COMUNICAR AL MONITOR
+                                         */
+
+                                    break;
+
+                            }
+
+
                             System.out.println("Mensaje recibido de " + senderAddress + ": " + receivedMessage);
 
                             if ("Hola".equals(receivedMessage)) {
@@ -474,6 +587,10 @@ public class Agente {
 
                     } catch (IOException e) {
                         e.printStackTrace();
+                    } catch (ParserConfigurationException e) {
+                        e.printStackTrace();
+                    } catch (TransformerException e) {
+                        e.printStackTrace();
                     }
                 }
             } catch (BindException y) {
@@ -481,6 +598,7 @@ public class Agente {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
         });
         listenerThread.start();
     }
@@ -508,141 +626,140 @@ public class Agente {
     public int resolverDuelo(String equipoRival) {
 
         // Si el agente rival es del mismo equipo que el agente (yo)
-        if (this.equipoDelAgente == equipoRival) {
+        if (this.equipoDelAgente.equals(equipoRival)) {
             return 2;
         }
 
         // En caso de que sean equipos distintos
 
         // Si el agente es Piedra
-        if (this.equipoDelAgente == "Piedra" && equipoRival == "Bebe_que_tose") {
+        if (this.equipoDelAgente.equals("Piedra") && equipoRival.equals("Bebe_que_tose")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Piedra" && equipoRival == "Bomba_de_Hidrogeno") {
+        if (this.equipoDelAgente.equals("Piedra") && equipoRival.equals("Bomba_de_Hidrogeno")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Piedra" && equipoRival == "Lagarto") {
+        if (this.equipoDelAgente.equals("Piedra") && equipoRival.equals("Lagarto")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Piedra" && equipoRival == "Tijera") {
+        if (this.equipoDelAgente.equals("Piedra") && equipoRival.equals("Tijera")) {
             return 1;
         }
 
         // Si el agente es Papel
-        if (this.equipoDelAgente == "Papel" && equipoRival == "Piedra") {
+        if (this.equipoDelAgente.equals("Papel") && equipoRival.equals("Piedra")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Papel" && equipoRival == "Spock") {
+        if (this.equipoDelAgente.equals("Papel") && equipoRival.equals("Spock")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Papel" && equipoRival == "Bomba_de_Hidrogeno") {
+        if (this.equipoDelAgente.equals("Papel") && equipoRival.equals("Bomba_de_Hidrogeno")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Papel" && equipoRival == "Santa_Claus") {
+        if (this.equipoDelAgente.equals("Papel") && equipoRival.equals("Santa_Claus")) {
             return 1;
         }
 
         // Si el agente es Tijera
-        if (this.equipoDelAgente == "Tijera" && equipoRival == "Papel") {
+        if (this.equipoDelAgente.equals("Tijera") && equipoRival.equals("Papel")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Tijera" && equipoRival == "Lagarto") {
+        if (this.equipoDelAgente.equals("Tijera") && equipoRival.equals("Lagarto")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Tijera" && equipoRival == "Mesa_de_IKEA") {
+        if (this.equipoDelAgente.equals("Tijera") && equipoRival.equals("Mesa_de_IKEA")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Tijera" && equipoRival == "Santa_Claus") {
+        if (this.equipoDelAgente.equals("Tijera") && equipoRival.equals("Santa_Claus")) {
             return 1;
         }
 
         // Si el agente es Lagarto
-        if (this.equipoDelAgente == "Lagarto" && equipoRival == "Papel") {
+        if (this.equipoDelAgente.equals("Lagarto") && equipoRival.equals("Papel")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Lagarto" && equipoRival == "Spock") {
+        if (this.equipoDelAgente.equals("Lagarto") && equipoRival.equals("Spock")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Lagarto" && equipoRival == "Santa_Claus") {
+        if (this.equipoDelAgente.equals("Lagarto") && equipoRival.equals("Santa_Claus")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Lagarto" && equipoRival == "Bebe_que_tose") {
+        if (this.equipoDelAgente.equals("Lagarto") && equipoRival.equals("Bebe_que_tose")) {
             return 1;
         }
 
         // Si el agente es Spock
-        if (this.equipoDelAgente == "Spock" && equipoRival == "Piedra") {
+        if (this.equipoDelAgente.equals("Spock") && equipoRival.equals("Piedra")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Spock" && equipoRival == "Tijera") {
+        if (this.equipoDelAgente.equals("Spock") && equipoRival.equals("Tijera")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Spock" && equipoRival == "Mesa_de_IKEA") {
+        if (this.equipoDelAgente.equals("Spock") && equipoRival.equals("Mesa_de_IKEA")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Spock" && equipoRival == "Bomba_de_Hidrogeno") {
+        if (this.equipoDelAgente.equals("Spock") && equipoRival.equals("Bomba_de_Hidrogeno")) {
             return 1;
         }
 
         // Si el agente es Bebe_que_tose
-        if (this.equipoDelAgente == "Bebe_que_tose" && equipoRival == "Papel") {
+        if (this.equipoDelAgente.equals("Bebe_que_tose") && equipoRival.equals("Papel")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bebe_que_tose" && equipoRival == "Spock") {
+        if (this.equipoDelAgente.equals("Bebe_que_tose") && equipoRival.equals("Spock")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bebe_que_tose" && equipoRival == "Santa_Claus") {
+        if (this.equipoDelAgente.equals("Bebe_que_tose") && equipoRival.equals("Santa_Claus")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bebe_que_tose" && equipoRival == "Tijera") {
+        if (this.equipoDelAgente.equals("Bebe_que_tose") && equipoRival.equals("Tijera")) {
             return 1;
         }
 
         // Si el agente es Bomba_de_Hidrogeno
-        if (this.equipoDelAgente == "Bomba_de_Hidrogeno" && equipoRival == "Lagarto") {
+        if (this.equipoDelAgente.equals("Bomba_de_Hidrogeno") && equipoRival.equals("Lagarto")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bomba_de_Hidrogeno" && equipoRival == "Beba_que_tose") {
+        if (this.equipoDelAgente.equals("Bomba_de_Hidrogeno") && equipoRival.equals("Beba_que_tose")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bomba_de_Hidrogeno" && equipoRival == "Mesa_de_IKEA") {
+        if (this.equipoDelAgente.equals("Bomba_de_Hidrogeno") && equipoRival.equals("Mesa_de_IKEA")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Bomba_de_Hidrogeno" && equipoRival == "Tijera") {
+        if (this.equipoDelAgente.equals("Bomba_de_Hidrogeno") && equipoRival.equals("Tijera")) {
             return 1;
         }
 
         // Si el agente es Santa_Claus
-        if (this.equipoDelAgente == "Santa_Claus" && equipoRival == "Piedra") {
+        if (this.equipoDelAgente.equals("Santa_Claus") && equipoRival.equals("Piedra")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Santa_Claus" && equipoRival == "Mesa_de_IKEA") {
+        if (this.equipoDelAgente.equals("Santa_Claus") && equipoRival.equals("Mesa_de_IKEA")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Santa_Claus" && equipoRival == "Bomba_de_Hidrogeno") {
+        if (this.equipoDelAgente.equals("Santa_Claus") && equipoRival.equals("Bomba_de_Hidrogeno")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Santa_Claus" && equipoRival == "Spock") {
+        if (this.equipoDelAgente.equals("Santa_Claus") && equipoRival.equals("Spock")) {
             return 1;
         }
 
         // Si el agente es Mesa_de_IKEA
-        if (this.equipoDelAgente == "Mesa_de_IKEA" && equipoRival == "Piedra") {
+        if (this.equipoDelAgente.equals("Mesa_de_IKEA") && equipoRival.equals("Piedra")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Mesa_de_IKEA" && equipoRival == "Lagarto") {
+        if (this.equipoDelAgente.equals("Mesa_de_IKEA") && equipoRival.equals("Lagarto")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Mesa_de_IKEA" && equipoRival == "Papel") {
+        if (this.equipoDelAgente.equals("Mesa_de_IKEA") && equipoRival.equals("Papel")) {
             return 1;
         }
-        if (this.equipoDelAgente == "Mesa_de_IKEA" && equipoRival == "Bebe_que_tose") {
+        if (this.equipoDelAgente.equals("Mesa_de_IKEA") && equipoRival.equals("Bebe_que_tose")) {
             return 1;
         }
 
         // si no se cumple ninguna de las anteriores, es que este agente (yo) ha perdido
         return 0;
-
     }
 
     /*
@@ -716,8 +833,69 @@ public class Agente {
 
     // Función específica de los agentes (Duelo de Piedra, Papel, Tijera, Lagarto,
     // Spock, Bebé que tose, Papá Noel, Mesa de IKEA y Bomba de Hidrógeno)
+
+
+    /*
+    FUNCION DEL AGENTE
+    FECHA MODIFICACIÓN: 13/12/2024
+    MODIFICADO POR: ÓSCAR E IVÁN
+     */
+    private Random random = new Random(); // Inicializa una sola vez porque si no no genera contrincantes random
     public void FuncionDeAgente() {
-        System.out.println("UGHHH!");
+        String msg = null;
+        //Random random = new Random();
+        double probabilidad = random.nextDouble(); // Genera un número entre 0 y 1 para la mandar la fachada o no
+
+        //System.out.println(this.agentesDescubiertos);
+        //OBTIENE AGENTE CONOCIDO ALEATORIO
+        while(this.agentesDescubiertos.size()<1){
+            System.out.println(ANSI_YELLOW+"Esperando a que empiece la partida"+ANSI_RESET);
+
+        }
+
+
+
+
+
+        int indiceAleatorio = random.nextInt(this.agentesDescubiertos.size());
+        AgenteConocido ag = this.agentesDescubiertos.get(indiceAleatorio);
+        System.out.println(ANSI_GREEN+"BUSCANDO COMBATE"+ANSI_RESET);
+        InetAddress destIP = ag.getIp();
+        int destPort = ag.getPuerto();
+
+
+
+        try {
+            if (probabilidad <= this.probabilidadMandarFachada) {
+                msg = MessageGenerator.createDueloMessage(this.listeningPort+1, "Com1", "Msg1", this.idAgente,
+                        this.ip.toString(), "dest1" ,destIP.toString(), this.equipoFachada); // Enviar fachada, en puerto mas 1 porque le sume 1 en el hilo de listenMessages
+            } else {
+                msg = MessageGenerator.createDueloMessage(this.listeningPort+1, "Com1", "Msg1", this.idAgente,
+                        this.ip.toString(), "dest1" ,destIP.toString(), this.equipoDelAgente); // Enviar equipo real, en puerto mas 1 porque le sume 1 en el hilo de listenMessages
+
+            }
+
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+        } catch (TransformerException e) {
+            e.printStackTrace();
+        }
+
+
+        //LE ENVIA EL MENSAJE DE DUELO A UN AGENTE ALEATORIO:
+        try (Socket socket = new Socket(destIP, destPort);
+             OutputStream outputStream = socket.getOutputStream();
+             PrintWriter writer = new PrintWriter(outputStream, true)) {
+
+            // Enviar el mensaje
+            System.out.println(ANSI_BLUE+"VOY A RETAR A" +destIP+":"+destPort+ANSI_RESET);
+            writer.println(msg);
+            System.out.println("mensaje enviado a"+destIP+":"+destPort);
+
+        } catch (Exception e) {
+            //e.printStackTrace();
+            System.err.println("Error al enviar el mensaje.");
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -745,7 +923,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        String ipMonitor = "192.168.1.5";
+        String ipMonitor = "192.168.1.38";
         InetAddress monitorAddress = InetAddress.getByName(ipMonitor); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
@@ -764,7 +942,7 @@ public class Agente {
         String msg = null;
         try {
             msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort, "Com1", "Msg1", "Agente_01",
-                    agente.ip.toString(), "Monitor", ipMonitor);
+                    agente.ip.toString(), "Monitor", ipMonitor, agente.equipoDelAgente);
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (TransformerException e) {
@@ -775,6 +953,7 @@ public class Agente {
 
         // Crear hilo para escuchar los mensajes de broadcast
         agente.listenForBroadcast();
+
 
         // Crear hilo para escuchar mensajes TCP
         agente.listenMessages();
