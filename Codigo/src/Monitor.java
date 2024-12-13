@@ -110,7 +110,11 @@ public class Monitor {
                     //int senderPort = clientSocket.getPort();
                     Document xmlDoc = parseXMLFromString(message);
                     File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
-                    //boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
+                    boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
+
+                    if (isValid) {
+                        System.out.println("Es validooooooo");
+                    }
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
                     int senderPort = Integer.parseInt(getElementValue(xmlDoc, "origin_port_TCP"));
                     switch (typeProtocol){

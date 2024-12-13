@@ -19,8 +19,13 @@ import XML.MessageGenerator;
 import com.sun.tools.javac.Main;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import XML.XMLValidator;
+import org.w3c.dom.Element;
 
 import static java.lang.System.exit;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Agente {
 
@@ -50,6 +55,8 @@ public class Agente {
     private double probabilidadMandarFachada; // Probabilidad de que el agente mande su equipo fachada
     private double probabilidadCreer;  // Probabilidad de que el agente se crea la fachada del rival
     private double probabilidadHuir;  // Probabilidad de que el agente escape del duelo
+
+    private String idAgente;
 
     // Método constructor del agente donde se hará la búsqueda de nido y se asignará
     // un puerto y IP para comunicarse
@@ -120,6 +127,12 @@ public class Agente {
         // Probabilidad de huir satisfactoriamente de un encuentro (Redondeado a dos decimas)
         // Random (30% - 60%)
         this.probabilidadHuir = Math.round((0.3 + (0.6 - 0.3) * random.nextDouble()) * 100.0) / 100.0;
+
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM:dd_HH:mm:ss");
+        String time = now.format(formatter);
+
+        this.idAgente = this.ip.toString() + "_" + this.listeningPortUDP.toString() + "_" + time;
     }
 
     // Función de replicación del agente (se usará una vez gane los duelos)
@@ -313,6 +326,26 @@ public class Agente {
         return availableIPs;
     }
 
+    private Document parseXMLFromString(String xmlString) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            return builder.parse(new java.io.ByteArrayInputStream(xmlString.getBytes()));
+        } catch (Exception e) {
+            System.err.println("Error al parsear el XML: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private String getElementValue(Document doc, String tagName) {
+        NodeList nodeList = doc.getElementsByTagName(tagName);
+        if (nodeList.getLength() > 0) {
+            return nodeList.item(0).getTextContent();
+        } else {
+            return null; // Elemento no encontrado
+        }
+    }
+
     //////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////// Hasta Aqui era todo preparar el agente
@@ -321,24 +354,30 @@ public class Agente {
 
     // Enviamos un mensaje por broadcast a cada una de las ips por cada uno de los
     // puertos disponibles
-    public void sendBroadcast(String message, int waitTime) throws InterruptedException {
+    public void sendBroadcast(int waitTime) throws InterruptedException {
         sendBroadcastThread = new Thread(() -> {
             while (!sendBroadcastThread.isInterrupted()) {
                 for (InetAddress ip : this.ipList) {
                     try (DatagramSocket socket = new DatagramSocket()) {
-                        byte[] buffer = message.getBytes();
+                        
                         for (int puerto = 4001; puerto <= 4199; puerto++) {
                             if (puerto % 2 == 1) {
+                                String message = MessageGenerator.createUDPMessage(this.listeningPortUDP, "Com1", "Msg1", "Agente_01", this.ip.toString(), idAgente, ip.toString());
+                                byte[] buffer = message.getBytes();
                                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length, ip, puerto);
                                 socket.send(packet);
                             }
                         }
                     } catch (IOException e) {
                         e.printStackTrace();
-                    }
+                    } catch (TransformerException e) {
+                                            e.printStackTrace();
+                                        } catch (ParserConfigurationException e) {
+
+                                            e.printStackTrace();
+                                        }
                 }
                 System.out.println("Di una vuelta a todas las IPS y puertos jejejjeje");
-
                 try {
                     Thread.sleep(waitTime); // Esperar x segundos antes de enviar el siguiente mensaje
                 } catch (InterruptedException e) {
@@ -363,11 +402,15 @@ public class Agente {
                     discoverySocket.receive(packet); // Recibe el mensaje de broadcast
 
                     String message = new String(packet.getData(), 0, packet.getLength());
+                    Document xmlDoc = parseXMLFromString(message);
+                    
+                    int senderPort = Integer.parseInt(getElementValue(xmlDoc, "origin_port_UDP"));
                     InetAddress senderAddress = packet.getAddress();
-                    int senderPort = Integer.parseInt(message);
+
+                    System.out.println("Puerto recibio: " + senderPort);
 
                     // Ignorar mensajes de broadcast enviados por este propio agente
-                    if (senderAddress.equals(this.ip) && senderPort == this.listeningPort) {
+                    if (senderAddress.equals(this.ip) && (senderPort == this.listeningPort || senderPort == this.listeningPortUDP)) {
                         System.out.println("Mensaje de broadcast ignorado: proviene del propio agente.");
                         continue; // Saltar a la siguiente iteración del bucle
                     }
@@ -376,7 +419,8 @@ public class Agente {
                             + "]: " + message);
 
                     AgenteConocido nuevoAgente = new AgenteConocido(senderAddress, senderPort);
-                    if (!agentesDescubiertos.contains(nuevoAgente)) {
+                    AgenteConocido nuevoAgente2 = new AgenteConocido(senderAddress, senderPort-1);
+                    if (!agentesDescubiertos.contains(nuevoAgente) && !agentesDescubiertos.contains(nuevoAgente2)) {
                         agentesDescubiertos.add(nuevoAgente);
                         System.out.println("Agente añadido a la lista de conocidos: " + nuevoAgente);
                     } else {
@@ -414,7 +458,7 @@ public class Agente {
                             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
                         InetAddress senderAddress = clientSocket.getInetAddress();
-                        int senderPort = clientSocket.getPort();
+
 
                         String receivedMessage;
                         while ((receivedMessage = in.readLine()) != null) {
@@ -443,7 +487,7 @@ public class Agente {
 
     // Enviar respuesta directa a otro agente
     public void sendDirectMessage(String message, InetAddress address, int puertoDestino) {
-
+        
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////
@@ -611,7 +655,6 @@ public class Agente {
      *          "Huir": El agente decide y logra huir del duelo
      *          "Atacar": El agente decide completar el duelo
      *          "Nada": El agente no ve como amenaza al rival porque lo considera de su equipo
-     *          "Dudar": El agente no confia en el equipo del rival y solicita el equipo real.
      *          "Error": El agente no sabe que hacer
      * empate
      */
@@ -620,6 +663,9 @@ public class Agente {
 
         // Lanzamos los dados para comprobar si se activa la probabilidad de creerse la tapadera
         double destinoTapadera = Math.round(random.nextDouble() * 100.0) / 100.0;
+
+        // Lanzamos los dados para comprobar si se activa la probabilidad de huir
+        double destinoHuida = Math.round(random.nextDouble() * 100.0) / 100.0;
         
         // Primer Caso: Me creo la tapadera, comprobar si le gano a la tapadera
         //              Si pierdo: Intentar Huir
@@ -630,9 +676,6 @@ public class Agente {
             int resultadoDuelo = resolverDuelo(equipoRival); 
             switch(resultadoDuelo){
                 case 0: // Pierdo el hipotetico duelo
-                    // Lanzamos los dados para comprobar si se activa la probabilidad de huir
-                    double destinoHuida = Math.round(random.nextDouble() * 100.0) / 100.0;
-
                     if(destinoHuida <= this.probabilidadHuir){  // El agente logra huir
                         System.out.println("Decido huir");
                         return "Huir";
@@ -655,10 +698,18 @@ public class Agente {
             }
 
         } else{  // Segundo Caso: No me creo la tapadera
-            // DISCLAIMER: Si se ve complejo o no tiene sentido volver a pedir el equipo real al rival, cambiar
-            // por "Atacar" o crear hacer un 50/50 entre "Atacar" o "Huir"
-            System.out.println("Decido dudar");
-            return "Dudar";
+            if(destinoTapadera < 0.5){
+                System.out.println("Tengo dudas. Decido atacar");
+                return "Atacar";
+            } else{
+                System.out.println("Tengo dudas. Decido huir");
+
+                if(destinoHuida < probabilidadHuir){
+                    return "Huir";
+                } else{
+                    return "Atacar";
+                }
+            }
         }
     }
 
@@ -694,10 +745,12 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        InetAddress monitorAddress = InetAddress.getByName("192.168.243.191"); // Reemplazar
+        String ipMonitor = "192.168.1.5";
+        InetAddress monitorAddress = InetAddress.getByName(ipMonitor); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
         Agente agente = new Agente(monitorAddress, monitorPort);
+        System.out.println("Soy un agente con ID: " + agente.idAgente + "\n");
 
         System.err.println("Hola soy un pelotudo de equipo: " + agente.equipoDelAgente);
         System.err.println("Hola soy un pelotudo de equipo fachada: " + agente.equipoFachada + "\n");
@@ -711,7 +764,7 @@ public class Agente {
         String msg = null;
         try {
             msg = MessageGenerator.createHeNacidoMessage(agente.listeningPort, "Com1", "Msg1", "Agente_01",
-                    agente.ip.toString(), "Monitor", "192.168.1.180");
+                    agente.ip.toString(), "Monitor", ipMonitor);
         } catch (ParserConfigurationException e) {
             e.printStackTrace();
         } catch (TransformerException e) {
@@ -727,7 +780,9 @@ public class Agente {
         agente.listenMessages();
 
         // Crear hilo de envío de broadcast
-        agente.sendBroadcast("" + agente.listeningPort, 5000);
+        // Crear mensaje XML
+        
+        agente.sendBroadcast(5000);
 
         
 
