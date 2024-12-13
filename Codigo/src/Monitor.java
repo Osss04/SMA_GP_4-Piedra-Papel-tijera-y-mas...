@@ -118,17 +118,32 @@ public class Monitor {
                     String typeProtocol = getElementValue(xmlDoc, "type_protocol");
                     int senderPort = Integer.parseInt(getElementValue(xmlDoc, "origin_port_TCP"));
                     switch (typeProtocol){
-                        case "hola":
+                        case "heNacido":
                             addAgent(senderAddress, senderPort);
                             String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");
                             System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + typeProtocol);
-                            //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + receivedMessage);
-                            //System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + message);
+
+                            /*
+                            AYUDA PARA HACER EL CONTADOR DE AGENTES POR EQUIPO
+                            COMO EN EN MENSAJE HENACIDO HE GUARDADO EN BODY_INFO EL NOMBRE DEL EQUIPO, BASTA CON QUE HAGAS UN SWITCH
+                            Y AUMENTES LA POSICION CORRESPONDIENTE DEL VECTOR (O LA ESTRUCTURA DE DATOS QUE USES)
+                             */
+                            //te dejo aqui en esta variable el equipo del agente que se comunica con el monitor
+                            String equipoAgente = getElementValue(xmlDoc,"body_info");
+                            System.out.println("Equipo del agente que ha nacido:"+equipoAgente);
                             logMessage(senderAddress, senderPort, mensaje);
                             break;
-                        case "Me mueroooo":
+                        case "meMuero":
                             System.out.println("Se eliminará el agente correspondiente:");
                             removeAgent(senderAddress,senderPort);
+                            /*
+                            AYUDA PARA HACER EL CONTADOR DE AGENTES POR EQUIPO
+                            COMO EN EN MENSAJE HENACIDO HE GUARDADO EN BODY_INFO EL NOMBRE DEL EQUIPO, BASTA CON QUE HAGAS UN SWITCH
+                            Y DECREMENTES LA POSICION CORRESPONDIENTE DEL VECTOR (O LA ESTRUCTURA DE DATOS QUE USES)
+                             */
+                            //te dejo aqui en esta variable el equipo del agente que se comunica con el monitor
+                            String equipoAgenteMuerto = getElementValue(xmlDoc,"body_info");
+                            System.out.println("Equipo del agente que ha muerto:"+equipoAgenteMuerto);
                             break;
                     }
 
