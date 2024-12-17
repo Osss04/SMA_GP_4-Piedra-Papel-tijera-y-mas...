@@ -3,10 +3,7 @@
 import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -22,6 +19,8 @@ public class Monitor {
     private int port;
     private List<Agent> agentesJuego; //Todos los agentes disponibles en el juego
     private ServerSocket serverSocket;
+
+    private HashMap<String, Integer> contadorAgentes;
 
     ///////////////////////////////////////////////////////////
     //////////Clase interna de agente
@@ -69,7 +68,23 @@ public class Monitor {
     public Monitor(int port) {
         this.port = port;
         this.agentesJuego = new ArrayList<>();
+        this.contadorAgentes = new HashMap<>();
         initializeLogFile(); // Inicializar el archivo CSV con encabezados
+    }
+
+    /*
+    Autor: Iván
+    Fecha: 13/12/2024
+    Función: Permite al monitor saber con exactitud el número de agentes que quedan de cada uno de los
+    equipos en función de los mensajes que le van llegando.
+    */
+    private void contadorEquipos(String equipoAgente, int protocolo){
+        if(protocolo == 1 && !this.contadorAgentes.containsKey(equipoAgente)){
+            this.contadorAgentes.put(equipoAgente,1);
+        }
+        else if(protocolo == 1){
+            this.contadorAgentes.replace(equipoAgente, this.contadorAgentes.get(equipoAgente)+1);
+        } else this.contadorAgentes.replace(equipoAgente, this.contadorAgentes.get(equipoAgente)-1);
     }
 
 
@@ -107,7 +122,7 @@ public class Monitor {
                     System.out.println(message);
                     // Capturar la IP y el puerto del emisor
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
-                    //int senderPort = clientSocket.getPort();
+                    //System.out.println(message);
                     Document xmlDoc = parseXMLFromString(message);
                     File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
                     boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
@@ -122,29 +137,22 @@ public class Monitor {
                             addAgent(senderAddress, senderPort);
                             String mensaje = ("[" + senderAddress + " : " + senderPort + "] --> "+ typeProtocol+"]");
                             System.out.println("[" + senderAddress + " : " + senderPort + "] --> " + typeProtocol);
-
-                            /*
-                            AYUDA PARA HACER EL CONTADOR DE AGENTES POR EQUIPO
-                            COMO EN EN MENSAJE HENACIDO HE GUARDADO EN BODY_INFO EL NOMBRE DEL EQUIPO, BASTA CON QUE HAGAS UN SWITCH
-                            Y AUMENTES LA POSICION CORRESPONDIENTE DEL VECTOR (O LA ESTRUCTURA DE DATOS QUE USES)
-                             */
-                            //te dejo aqui en esta variable el equipo del agente que se comunica con el monitor
-                            String equipoAgente = getElementValue(xmlDoc,"body_info");
+                            String equipoAgente = getElementValue(xmlDoc,"body_info"); //Obtenemos el equipo del agente
                             System.out.println("Equipo del agente que ha nacido:"+equipoAgente);
+                            contadorEquipos(equipoAgente, 1); // Método que actualizará aumentando el contador del equipo en cuestión
                             logMessage(senderAddress, senderPort, mensaje);
                             break;
                         case "meMuero":
                             System.out.println("Se eliminará el agente correspondiente:");
                             removeAgent(senderAddress,senderPort);
-                            /*
-                            AYUDA PARA HACER EL CONTADOR DE AGENTES POR EQUIPO
-                            COMO EN EN MENSAJE HENACIDO HE GUARDADO EN BODY_INFO EL NOMBRE DEL EQUIPO, BASTA CON QUE HAGAS UN SWITCH
-                            Y DECREMENTES LA POSICION CORRESPONDIENTE DEL VECTOR (O LA ESTRUCTURA DE DATOS QUE USES)
-                             */
-                            //te dejo aqui en esta variable el equipo del agente que se comunica con el monitor
-                            String equipoAgenteMuerto = getElementValue(xmlDoc,"body_info");
+                            String equipoAgenteMuerto = getElementValue(xmlDoc,"body_info"); //Obtenemos el equipo del agente
+                            contadorEquipos(equipoAgenteMuerto, 2); //Método que actualizará disminuyendo el contador del equipo en cuestión
                             System.out.println("Equipo del agente que ha muerto:"+equipoAgenteMuerto);
                             break;
+                    }
+                    System.out.println("------------------LISTA TORNEO---------------------\n");
+                    for (String i: this.contadorAgentes.keySet()) {
+                        System.out.println(i + ": " + this.contadorAgentes.get(i));
                     }
 
 
