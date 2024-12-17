@@ -1,9 +1,12 @@
 
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.*;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import javax.swing.Timer;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
@@ -17,10 +20,23 @@ import org.w3c.dom.NodeList;
 public class Monitor {
 
     private int port;
-    private List<Agent> agentesJuego; //Todos los agentes disponibles en el juego
+    private List<Agente> agentesJuego; //Todos los agentes disponibles en el juego
     private ServerSocket serverSocket;
 
     private HashMap<String, Integer> contadorAgentes;
+
+    javax.swing.Timer contadorParada = new Timer(30000, new ActionListener() {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            try{
+                if (condicionParada()){
+                    detenerTodos();
+                }
+            } catch(IllegalArgumentException x){
+                contadorParada.start();
+            }
+        }
+    });
 
     ///////////////////////////////////////////////////////////
     //////////Clase interna de agente
@@ -71,6 +87,44 @@ public class Monitor {
         this.contadorAgentes = new HashMap<>();
         initializeLogFile(); // Inicializar el archivo CSV con encabezados
     }
+
+    /*
+    Autor: Óscar
+    Fecha: 17/12/2024
+    Función: evalúa si sólo queda un equipo con vida, si es así, el monitor dejará de escuchar y se parará.
+     */
+    public boolean condicionParada() {
+        int equiposConMiembros = 0;
+
+        for (Integer cantidad : contadorAgentes.values()) {
+            if (cantidad > 0) {
+                equiposConMiembros++;
+                if (equiposConMiembros > 1) {
+                    // Hay más de un equipo con miembros
+                    return false;
+                }
+            }
+        }
+        // Si hay 0 o 1 equipos con miembros, cumple la condición
+        return equiposConMiembros == 1;
+    }
+
+    /*
+    Autor: Óscar
+    Fecha: 17/12/2024
+    Función: para todos los agentes del sistema.
+    */
+
+    public void detenerTodos() {
+        for (Agente agente : agentesJuego) {
+            agente.autodestruccionDelAgente(); // Detener cada agente
+        }
+
+        System.out.println("Todos los agentes detenidos.");
+    }
+
+
+
 
     /*
     Autor: Iván
@@ -150,6 +204,8 @@ public class Monitor {
                             System.out.println("Equipo del agente que ha muerto:"+equipoAgenteMuerto);
                             break;
                     }
+
+                    this.contadorParada.start();
                     System.out.println("------------------LISTA TORNEO---------------------\n");
                     for (String i: this.contadorAgentes.keySet()) {
                         System.out.println(i + ": " + this.contadorAgentes.get(i));
@@ -204,9 +260,9 @@ public class Monitor {
     //////////Registar agente en la lista de agentes
     //////////////////////////////////////////////////////////
 
-    public void addAgent(String ip, int port) {
+    public void addAgent(String ip, int port) throws IOException{
         // Crear y agregar un nuevo objeto Agente a la lista
-        Agent nuevoAgente = new Agent(ip, port);
+        Agente nuevoAgente = new Agente(InetAddress.getByName(ip), port);
         agentesJuego.add(nuevoAgente); // Agregar el agente a la lista
         System.out.println("Agente agregado: " + nuevoAgente);
     }
