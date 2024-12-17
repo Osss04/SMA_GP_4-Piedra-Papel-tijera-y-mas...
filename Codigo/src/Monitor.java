@@ -9,7 +9,10 @@ import java.util.*;
 import javax.swing.Timer;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
 
+import XML.MessageGenerator;
 import XML.XMLValidator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -19,8 +22,10 @@ import org.w3c.dom.NodeList;
 
 public class Monitor {
 
+    final String ANSI_GREEN = "\u001B[32m"; //Poner mensajes en color verde :)
+    final String ANSI_RESET = "\u001B[0m";
     private int port;
-    private List<Agente> agentesJuego; //Todos los agentes disponibles en el juego
+    private List<AgenteConocido> agentesJuego; //Todos los agentes disponibles en el juego
     private ServerSocket serverSocket;
 
     private HashMap<String, Integer> contadorAgentes;
@@ -32,7 +37,7 @@ public class Monitor {
                 if (condicionParada()){
                     detenerTodos();
                 }
-            } catch(IllegalArgumentException x){
+            } catch(IllegalArgumentException | ParserConfigurationException | TransformerException x){
                 contadorParada.start();
             }
         }
@@ -95,17 +100,20 @@ public class Monitor {
      */
     public boolean condicionParada() {
         int equiposConMiembros = 0;
+        String nombreEquipoGanador = null;
 
-        for (Integer cantidad : contadorAgentes.values()) {
-            if (cantidad > 0) {
+        for (String equipo : contadorAgentes.keySet()) {
+            if (contadorAgentes.get(equipo) > 0) {
                 equiposConMiembros++;
                 if (equiposConMiembros > 1) {
                     // Hay más de un equipo con miembros
                     return false;
                 }
+                nombreEquipoGanador = equipo;
             }
         }
         // Si hay 0 o 1 equipos con miembros, cumple la condición
+        System.out.println(ANSI_GREEN+"PARAD, EL EQUIPO QUE HA GANADO EL BATTLE ROYALE HA SIDO: \n" +nombreEquipoGanador+"\n¡¡¡¡ENHORABUENA!!!!"+ANSI_RESET);
         return equiposConMiembros == 1;
     }
 
@@ -115,9 +123,23 @@ public class Monitor {
     Función: para todos los agentes del sistema.
     */
 
-    public void detenerTodos() {
-        for (Agente agente : agentesJuego) {
-            agente.autodestruccionDelAgente(); // Detener cada agente
+    public void detenerTodos() throws ParserConfigurationException, TransformerException {
+        for (AgenteConocido agente : agentesJuego) {
+            String mensajeEnviar = MessageGenerator.createGanoDueloMessage(this.port, "Com1", "Msg1", "Monitor",
+                    agente.getIp().toString(), "dest1",agente.getIp().toString(), "");
+
+            try (Socket socket = new Socket(agente.getIp(), agente.getPuerto()+1);
+                 OutputStream outputStream = socket.getOutputStream();
+                 PrintWriter writer = new PrintWriter(outputStream, true)) {
+
+                // Enviar el mensaje
+                writer.println(mensajeEnviar);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.err.println("Error al enviar el mensaje de que huyo.");
+            }
+            // Detener cada agente
         }
 
         System.out.println("Todos los agentes detenidos.");
@@ -138,7 +160,13 @@ public class Monitor {
         }
         else if(protocolo == 1){
             this.contadorAgentes.replace(equipoAgente, this.contadorAgentes.get(equipoAgente)+1);
-        } else this.contadorAgentes.replace(equipoAgente, this.contadorAgentes.get(equipoAgente)-1);
+        } else {
+            this.contadorAgentes.replace(equipoAgente, this.contadorAgentes.get(equipoAgente)-1);
+            if(this.contadorAgentes.get(equipoAgente) == 0){
+                this.contadorAgentes.remove(equipoAgente);
+            }
+        }
+
     }
 
 
@@ -173,10 +201,8 @@ public class Monitor {
                 try(Socket clientSocket = serverSocket.accept();
                     BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))){
                     String message = in.readLine();
-                    System.out.println(message);
                     // Capturar la IP y el puerto del emisor
                     String senderAddress = clientSocket.getInetAddress().getHostAddress();
-                    //System.out.println(message);
                     Document xmlDoc = parseXMLFromString(message);
                     File xsdFile = new File("esquema_AG_basico.xsd"); // Ruta del archivo XSD
                     boolean isValid = XMLValidator.validateXMLSchema(xsdFile, xsdFile);
@@ -262,7 +288,7 @@ public class Monitor {
 
     public void addAgent(String ip, int port) throws IOException{
         // Crear y agregar un nuevo objeto Agente a la lista
-        Agente nuevoAgente = new Agente(InetAddress.getByName(ip), port);
+        AgenteConocido nuevoAgente = new AgenteConocido(InetAddress.getByName(ip), port);
         agentesJuego.add(nuevoAgente); // Agregar el agente a la lista
         System.out.println("Agente agregado: " + nuevoAgente);
     }
@@ -273,9 +299,9 @@ public class Monitor {
     Función: Elimina un objeto agente de la clase monitor en caso de que se reciba un
     mensaje de Me mueroooooo
      */
-    public void removeAgent(String ip, int port) {
+    public void removeAgent(String ip, int port) throws UnknownHostException {
         // Crear un objeto temporal Agente para buscar
-        Agent agenteAEliminar = new Agent(ip, port);
+        AgenteConocido agenteAEliminar = new AgenteConocido(InetAddress.getByName(ip) , port);
 
         // Intentar eliminar el agente de la lista
         if (agentesJuego.remove(agenteAEliminar)) {

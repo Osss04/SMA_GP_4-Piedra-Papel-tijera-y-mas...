@@ -1029,7 +1029,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        String ipMonitor = "192.168.92.66";
+        String ipMonitor = "192.168.1.187";
         InetAddress monitorAddress = InetAddress.getByName(ipMonitor); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
