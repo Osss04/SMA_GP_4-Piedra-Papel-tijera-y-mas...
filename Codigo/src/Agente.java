@@ -174,7 +174,7 @@ public class Agente {
     }
 
     // Función de autodestrucción del agente (se usará una vez pierda los duelos)
-    private void autodestruccionDelAgente() {
+    void autodestruccionDelAgente() {
         System.out.println("Me muero a");
 
         if (sendBroadcastThread != null) {
@@ -1029,7 +1029,7 @@ public class Agente {
     public static void main(String[] args) throws IOException, InterruptedException {
         // ESTA ES LA IP QUE YO TENIA PUESTA, TENEIS QUE CAMBIARLA POR LA VUESTRA PARA
         // PROBAR
-        String ipMonitor = "192.168.43.207";
+        String ipMonitor = "192.168.1.187";
         InetAddress monitorAddress = InetAddress.getByName(ipMonitor); // Reemplazar
         int monitorPort = 4300; // Puerto del monitor
 
